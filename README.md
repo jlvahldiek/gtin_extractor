@@ -25,3 +25,8 @@ Install Python dependencies:
 
 ```bash
 pip install -r requirements.txt
+
+## Run
+export OPENAI_API_KEY="your_api_key_here"
+
+python3 batch_ai_gtin_validated.py "Extract product info" ./fotos batch_products_validated.csv 4
