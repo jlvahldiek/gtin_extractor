@@ -1,0 +1,167 @@
+import os
+import argparse
+import re
+import csv
+from pathlib import Path
+from PIL import Image
+from pyzbar.pyzbar import decode as pyzbar_decode
+import zxingcpp
+from tqdm import tqdm
+
+def is_valid_gtin_checksum(barcode_data: str) -> bool:
+    """Validate GTIN by checking its length and calculating the checksum."""
+    if not barcode_data.isdigit():
+        return False
+    
+    # GTIN can be 8, 12, 13, or 14 digits
+    if len(barcode_data) not in (8, 12, 13, 14):
+        return False
+        
+    # Checksum validation
+    # The last digit is the check digit
+    payload = barcode_data[:-1]
+    check_digit = int(barcode_data[-1])
+    
+    # Calculate checksum
+    # Reverse the payload, multiply by 3 or 1 alternating, and sum
+    total = 0
+    for i, char in enumerate(reversed(payload)):
+        multiplier = 3 if i % 2 == 0 else 1
+        total += int(char) * multiplier
+        
+    calculated_check = (10 - (total % 10)) % 10
+    
+    return check_digit == calculated_check
+
+
+def extract_gtin_from_raw(raw_data: str) -> str:
+    """Extract a valid GTIN from a raw barcode string (including GS1 strings)."""
+    # 1. Try to find 14-digit GTIN following (01) or (02)
+    match = re.search(r"\(0[12]\)(\d{14})", raw_data)
+    if match:
+        gtin = match.group(1)
+        if is_valid_gtin_checksum(gtin):
+            return gtin
+            
+    # 2. Standardize GS1 delimiters and search for 01 / 02
+    s = raw_data.replace("\x1d", "|").replace("\x1e", "|").replace("^", "|")
+    match = re.search(r"(?:^|\|)0[12](\d{14})", s)
+    if match:
+        gtin = match.group(1)
+        if is_valid_gtin_checksum(gtin):
+            return gtin
+            
+    # 3. Strip non-digits and look for a valid length GTIN
+    digits = re.sub(r"\D", "", raw_data)
+    
+    # If the numeric string starts with 01 and has enough digits, grab the 14 digits
+    if len(digits) >= 16 and (digits.startswith("01") or digits.startswith("02")):
+        gtin = digits[2:16]
+        if is_valid_gtin_checksum(gtin):
+            return gtin
+            
+    if len(digits) in (8, 12, 13, 14):
+        if is_valid_gtin_checksum(digits):
+            return digits
+            
+    return ""
+
+
+def decode_barcode_pyzbar(image: Image.Image) -> str:
+    """Decode barcode using pyzbar"""
+    try:
+        decoded_objects = pyzbar_decode(image)
+        for obj in decoded_objects:
+            data = obj.data.decode('utf-8')
+            gtin = extract_gtin_from_raw(data)
+            if gtin:
+                return gtin
+    except Exception as e:
+        print(f"pyzbar error: {e}")
+        pass
+    return ""
+
+
+def decode_barcode_zxing(image: Image.Image) -> str:
+    """Decode barcode using zxing-cpp"""
+    try:
+        barcodes = zxingcpp.read_barcodes(image, try_rotate=True, try_downscale=True)
+        for barcode in barcodes:
+            data = barcode.text
+            gtin = extract_gtin_from_raw(data)
+            if gtin:
+                return gtin
+    except Exception as e:
+        print(f"zxing error: {e}")
+        pass
+    return ""
+
+
+def process_image(image_path: str) -> str:
+    """Process a single image, attempting to read GTIN."""
+    try:
+        with Image.open(image_path) as img:
+            # We need to test pyzbar with rotations since it doesn't do it itself
+            rotations = [0, 90, 180, 270]
+            
+            # Try pyzbar with manual rotations
+            for angle in rotations:
+                rotated_img = img.rotate(angle, expand=True) if angle != 0 else img
+                result = decode_barcode_pyzbar(rotated_img)
+                if result:
+                    return result
+            
+            # If pyzbar fails, try zxing-cpp (which handles rotation internally)
+            result = decode_barcode_zxing(img)
+            if result:
+                return result
+                
+    except Exception as e:
+        print(f"Error processing {image_path}: {e}")
+        
+    return ""
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Extract GTINs from a directory of photos.")
+    parser.add_argument("directory", nargs="?", default="fotos", help="Directory containing images")
+    parser.add_argument("--csv", help="Path to output CSV file (e.g., results.csv)", default=None)
+    args = parser.parse_args()
+
+    dir_path = Path(args.directory)
+    if not dir_path.exists() or not dir_path.is_dir():
+        print(f"Directory not found: {dir_path}")
+        return
+
+    print(f"Processing images in {dir_path}...")
+    
+    # Supported extensions
+    valid_exts = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".gif"}
+    
+    results = []
+    
+    # Filter valid files beforehand so tqdm knows the total length
+    files_to_process = [f for f in dir_path.iterdir() if f.is_file() and f.suffix.lower() in valid_exts]
+    
+    for file_path in tqdm(files_to_process, desc="Scanning images"):
+        gtin = process_image(str(file_path))
+        if gtin:
+            tqdm.write(f"Found GTIN: {gtin} in {file_path.name}")
+            results.append({"filename": file_path.name, "gtin": gtin, "status": "OK"})
+        else:
+            tqdm.write(f"No valid GTIN found in {file_path.name}")
+            results.append({"filename": file_path.name, "gtin": "", "status": "FAIL"})
+
+    if args.csv:
+        csv_path = Path(args.csv)
+        try:
+            with open(csv_path, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.DictWriter(f, fieldnames=["filename", "gtin", "status"])
+                writer.writeheader()
+                writer.writerows(results)
+            print(f"\nResults successfully exported to {csv_path}")
+        except Exception as e:
+            print(f"\nError writing to CSV {csv_path}: {e}")
+
+if __name__ == "__main__":
+    main()
