@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 
 class TestDecodeBarcodeReaders:
     """Tests for pyzbar and zxing reader wrappers."""
@@ -29,7 +27,6 @@ class TestDecodeBarcodeReaders:
 
         # Patch the import inside the function
         with patch.dict("sys.modules", {"pyzbar": MagicMock(), "pyzbar.pyzbar": MagicMock()}):
-            import importlib
             import sys
             pyzbar_mock = sys.modules["pyzbar.pyzbar"]
             pyzbar_mock.decode = MagicMock(return_value=[mock_obj])

@@ -6,6 +6,7 @@ import json
 import logging
 import re
 import time
+from typing import Any
 
 from gtin_extractor.validation import extract_gtin_from_raw
 
@@ -38,7 +39,8 @@ def _gemini_retry(
                 contents=prompt_parts,
                 config={"response_mime_type": "application/json"},
             )
-            return json.loads(resp.text)
+            result: dict[str, Any] = json.loads(resp.text)
+            return result
         except Exception as exc:
             err_str = str(exc).lower()
             if "429" in err_str or "quota" in err_str:
@@ -107,8 +109,7 @@ def decode_barcode_gemini(
     )
 
     try:
-        img = Image.open(image_path)
-        img = img.convert("RGB")
+        img = Image.open(image_path).convert("RGB")
         img.thumbnail((1600, 1600))
 
         data = _gemini_retry(client, model, [prompt, img])
@@ -146,7 +147,8 @@ def analyze_product_gemini(
         "Analyze this product label and extract the following information. "
         "Return ONLY a JSON object with these exact keys:\n"
         "- 'manufacturer': The brand or manufacturer name.\n"
-        "- 'ref': The REF or catalog/article number (often labeled 'REF', 'Cat.', 'Art.', or 'No.').\n"
+        "- 'ref': The REF or catalog/article number "
+        "(often labeled 'REF', 'Cat.', 'Art.', or 'No.').\n"
         "- 'ref_confidence': Your confidence in the extracted REF number. "
         "Use exactly one of: 'high' (clearly labeled as REF/Cat/Art), "
         "'medium' (plausible but ambiguous label), or 'low' (uncertain or inferred).\n"
@@ -159,8 +161,7 @@ def analyze_product_gemini(
     )
 
     try:
-        img = Image.open(image_path)
-        img = img.convert("RGB")
+        img = Image.open(image_path).convert("RGB")
         img.thumbnail((1600, 1600))
         data = _gemini_retry(client, model, [prompt, img])
         return {

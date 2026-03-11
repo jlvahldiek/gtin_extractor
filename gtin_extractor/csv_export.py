@@ -5,7 +5,7 @@ from __future__ import annotations
 import csv
 import logging
 from pathlib import Path
-from typing import Iterator
+from typing import IO, Iterator
 
 logger = logging.getLogger("gtin_extractor.csv_export")
 
@@ -34,7 +34,8 @@ def build_row(
         filename: Source image filename (basename only).
         gtin: Extracted and validated GTIN, or ``""`` if not found.
         method: Detection method string (``"pyzbar"``, ``"zxing"``, ``"gemini"``, or ``""``).
-        product_info: Dict returned by :func:`~gtin_extractor.gemini_integration.analyze_product_gemini`.
+        product_info: Dict returned by
+            :func:`~gtin_extractor.gemini_integration.analyze_product_gemini`.
 
     Returns:
         Row dict keyed by :data:`FIELDNAMES`.
@@ -63,7 +64,7 @@ class CSVWriter:
 
     def __init__(self, path: str | Path) -> None:
         self.path = Path(path)
-        self._file = None
+        self._file: IO[str] | None = None
         self._writer: csv.DictWriter | None = None
 
     def __enter__(self) -> "CSVWriter":

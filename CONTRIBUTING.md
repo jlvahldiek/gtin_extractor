@@ -8,7 +8,7 @@ Thank you for your interest in contributing! This guide will help you get starte
 
 ### Prerequisites
 
-- Python 3.9 or newer
+- Python 3.10 or newer
 - System dependencies:
   - **macOS**: `brew install zbar`
   - **Linux**: `sudo apt-get install libzbar0`

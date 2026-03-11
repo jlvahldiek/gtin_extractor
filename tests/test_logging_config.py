@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import logging
 
-import pytest
-
 from gtin_extractor.logging_config import get_logger, setup_logging
 
 

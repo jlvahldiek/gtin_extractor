@@ -66,7 +66,7 @@ class TestCSVWriter:
 
     def test_csv_has_header(self, tmp_path):
         csv_path = tmp_path / "out.csv"
-        with CSVWriter(csv_path) as writer:
+        with CSVWriter(csv_path):
             pass  # No rows – just header
         with open(csv_path, newline="", encoding="utf-8") as fh:
             reader = csv.DictReader(fh)

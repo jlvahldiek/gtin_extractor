@@ -2,11 +2,6 @@
 
 from __future__ import annotations
 
-import os
-from pathlib import Path
-
-import pytest
-
 from gtin_extractor.config import DEFAULTS, Config, load_config
 
 
