@@ -105,7 +105,6 @@ def decode_barcode_zxing(image: Image.Image) -> str:
 
 def decode_barcode_gemini(image_path: str, api_key: str) -> str:
     """Fallback: Decode barcode using Gemini APIs."""
-    print("d______________")
     if not api_key:
         return ""
     
@@ -123,6 +122,7 @@ def decode_barcode_gemini(image_path: str, api_key: str) -> str:
                 "Example: {\"gtin\": \"00827002507791\"}"
             )
             img = Image.open(image_path)
+            img = img.convert("RGB")  # Ensure RGB for Gemini compatibility (handles MPO, etc.)
             img.thumbnail((1600, 1600))
             resp = model.generate_content(
                 [prompt, img], 
