@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from gtin_extractor.validation import extract_gtin_from_raw, is_valid_gtin_checksum
 
 
