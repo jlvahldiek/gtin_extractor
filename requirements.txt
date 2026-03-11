@@ -1,6 +1,14 @@
-requests>=2.31.0
-pyzbar>=0.1.9
-zxing-cpp>=2.2.0
-Pillow>=10.2.0
-tqdm>=4.66.0
-google-genai>=0.1.0
+# Runtime dependencies for gtin_extractor
+# System deps: libzbar0 (Linux) / zbar (macOS) required for pyzbar
+
+requests>=2.31.0,<3
+pyzbar>=0.1.9,<1
+zxing-cpp>=2.2.0,<3
+Pillow>=10.2.0,<12
+tqdm>=4.66.0,<5
+google-genai>=0.1.0,<2
+
+# Optional: install these for config.yaml and .env file support
+# (automatically used when present; no error if absent)
+# PyYAML>=6.0,<7
+# python-dotenv>=1.0.0,<2

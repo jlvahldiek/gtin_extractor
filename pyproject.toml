@@ -1,0 +1,78 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gtin_extractor"
+version = "1.0.0"
+description = "Batch GTIN extraction from product label images using pyzbar, zxing-cpp, and Gemini AI"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.9"
+keywords = ["gtin", "barcode", "ean", "upc", "gs1", "pyzbar", "zxing", "gemini"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Scientific/Engineering :: Image Recognition",
+]
+dependencies = [
+    "requests>=2.31.0",
+    "pyzbar>=0.1.9",
+    "zxing-cpp>=2.2.0",
+    "Pillow>=10.2.0",
+    "tqdm>=4.66.0",
+    "google-genai>=0.1.0",
+]
+
+[project.optional-dependencies]
+config = ["PyYAML>=6.0", "python-dotenv>=1.0.0"]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "flake8>=6.1.0",
+    "black>=23.0.0",
+    "pylint>=3.0.0",
+    "mypy>=1.5.0",
+    "PyYAML>=6.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+gtin-extractor = "gtin_extractor.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/jlvahldiek/gtin_extractor"
+Repository = "https://github.com/jlvahldiek/gtin_extractor"
+"Bug Tracker" = "https://github.com/jlvahldiek/gtin_extractor/issues"
+
+[tool.setuptools.packages.find]
+include = ["gtin_extractor*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v"
+
+[tool.coverage.run]
+source = ["gtin_extractor"]
+omit = ["gtin_extractor/__main__.py"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 70
+
+[tool.mypy]
+python_version = "3.9"
+ignore_missing_imports = true
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.black]
+line-length = 100
+target-version = ["py39", "py310", "py311", "py312"]
