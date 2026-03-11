@@ -2,8 +2,14 @@ import os
 import argparse
 import re
 import csv
+import json
+import time
 from pathlib import Path
 from PIL import Image
+from pyzbar.pyzbar import decode as pyzbar_decode
+import zxingcpp
+import google.generativeai as genai
+from tqdm import tqdm
 from pyzbar.pyzbar import decode as pyzbar_decode
 import zxingcpp
 from tqdm import tqdm
@@ -97,7 +103,72 @@ def decode_barcode_zxing(image: Image.Image) -> str:
     return ""
 
 
-def process_image(image_path: str) -> str:
+def decode_barcode_gemini(image_path: str, api_key: str) -> str:
+    """Fallback: Decode barcode using Gemini APIs."""
+    print("d______________")
+    if not api_key:
+        return ""
+    
+    # We add a retry loop to handle 429 Quota Exceeded errors from the free tier API.
+    max_retries = 5
+    base_delay = 10
+    
+    for attempt in range(max_retries):
+        try:
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel('gemini-2.5-flash')
+            prompt = (
+                "Extract the GTIN(14) from the label in this image. "
+                "Return ONLY a JSON object with a single key 'gtin' containing the string value. "
+                "Example: {\"gtin\": \"00827002507791\"}"
+            )
+            img = Image.open(image_path)
+            img.thumbnail((1600, 1600))
+            resp = model.generate_content(
+                [prompt, img], 
+                generation_config={"response_mime_type": "application/json"}
+            )
+            data = json.loads(resp.text)
+            gtin = data.get("gtin", "")
+            
+            # Validation
+            if extract_gtin_from_raw(gtin):
+                 return extract_gtin_from_raw(gtin)
+            
+            # If no exception and no GTIN found, break early to avoid endless retries on bad images
+            break 
+            
+        except Exception as e:
+            err_str = str(e)
+            if "429" in err_str or "Quota exceeded" in err_str:
+                # Identify specific quota type
+                quota_type = "Unknown Quota"
+                if "GenerateRequestsPerMinutePerProjectPerModel" in err_str:
+                    quota_type = "Requests Per Minute (RPM)"
+                elif "GenerateRequestsPerDayPerProjectPerModel" in err_str:
+                    quota_type = "Daily Request Limit (RPD)"
+                elif "GenerateContentInputTokensPerModelPerMinute" in err_str:
+                    quota_type = "Input Token Limit"
+                
+                if attempt < max_retries - 1:
+                    match = re.search(r"Please retry in ([\d\.]+)s", err_str)
+                    if match:
+                        sleep_time = float(match.group(1)) + 1.0
+                    else:
+                        sleep_time = base_delay * (attempt + 1)
+                        
+                    tqdm.write(f"Gemini {quota_type} hit. Retrying in {sleep_time:.1f}s...")
+                    time.sleep(sleep_time)
+                else:
+                    tqdm.write(f"Gemini error: {quota_type} exceeded after {max_retries} retries.")
+            else:
+                tqdm.write(f"Gemini error: {e}")
+                break
+                
+    return ""
+
+
+def process_image(image_path: str, gemini_key: str = None) -> str:
     """Process a single image, attempting to read GTIN."""
     try:
         with Image.open(image_path) as img:
@@ -116,8 +187,14 @@ def process_image(image_path: str) -> str:
             if result:
                 return result
                 
+        # If both primary methods fail, try Gemini
+        if gemini_key:
+            result = decode_barcode_gemini(image_path, gemini_key)
+            if result:
+                return result
+                
     except Exception as e:
-        print(f"Error processing {image_path}: {e}")
+        tqdm.write(f"Error processing {image_path}: {e}")
         
     return ""
 
@@ -126,6 +203,7 @@ def main():
     parser = argparse.ArgumentParser(description="Extract GTINs from a directory of photos.")
     parser.add_argument("directory", nargs="?", default="fotos", help="Directory containing images")
     parser.add_argument("--csv", help="Path to output CSV file (e.g., results.csv)", default=None)
+    parser.add_argument("--gemini-key", help="Google Gemini API Key for fallback processing", default=None)
     args = parser.parse_args()
 
     dir_path = Path(args.directory)
@@ -144,7 +222,7 @@ def main():
     files_to_process = [f for f in dir_path.iterdir() if f.is_file() and f.suffix.lower() in valid_exts]
     
     for file_path in tqdm(files_to_process, desc="Scanning images"):
-        gtin = process_image(str(file_path))
+        gtin = process_image(str(file_path), gemini_key=args.gemini_key)
         if gtin:
             tqdm.write(f"Found GTIN: {gtin} in {file_path.name}")
             results.append({"filename": file_path.name, "gtin": gtin, "status": "OK"})
