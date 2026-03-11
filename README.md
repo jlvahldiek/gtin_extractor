@@ -52,7 +52,8 @@ python3 gtin_barcode_extractor.py fotos/ --gemini-key YOUR_API_KEY --csv results
 ### Advanced Options
 - `directory`: The source folder containing images (default: `fotos`).
 - `--csv`: Path to the output CSV file.
-- `--gemini-key`: Your Google Gemini API key (enables AI fallback).
+- `--gemini-key`: Your Google Gemini API key (enables AI fallback and analysis).
+- `--gemini-model`: Specify the Gemini model to use (default: `gemini-2.0-flash`).
 - `--limit`: Limit the number of files processed (e.g., `--limit 5`).
 
 ---
