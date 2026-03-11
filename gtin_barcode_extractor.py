@@ -8,10 +8,7 @@ from pathlib import Path
 from PIL import Image
 from pyzbar.pyzbar import decode as pyzbar_decode
 import zxingcpp
-import google.generativeai as genai
-from tqdm import tqdm
-from pyzbar.pyzbar import decode as pyzbar_decode
-import zxingcpp
+from google import genai
 from tqdm import tqdm
 
 def is_valid_gtin_checksum(barcode_data: str) -> bool:
@@ -104,9 +101,12 @@ def decode_barcode_zxing(image: Image.Image) -> str:
 
 
 def decode_barcode_gemini(image_path: str, api_key: str) -> str:
-    """Fallback: Decode barcode using Gemini APIs."""
+    """Fallback: Decode barcode using Gemini APIs (via new google-genai SDK)."""
     if not api_key:
         return ""
+    
+    # Initialize the client
+    client = genai.Client(api_key=api_key)
     
     # We add a retry loop to handle 429 Quota Exceeded errors from the free tier API.
     max_retries = 5
@@ -114,44 +114,48 @@ def decode_barcode_gemini(image_path: str, api_key: str) -> str:
     
     for attempt in range(max_retries):
         try:
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('gemini-2.5-flash')
             prompt = (
                 "Extract the GTIN(14) from the label in this image. "
                 "Return ONLY a JSON object with a single key 'gtin' containing the string value. "
                 "Example: {\"gtin\": \"00827002507791\"}"
             )
             img = Image.open(image_path)
-            img = img.convert("RGB")  # Ensure RGB for Gemini compatibility (handles MPO, etc.)
+            img = img.convert("RGB")  # Ensure RGB for Gemini compatibility
             img.thumbnail((1600, 1600))
-            resp = model.generate_content(
-                [prompt, img], 
-                generation_config={"response_mime_type": "application/json"}
+            
+            resp = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=[prompt, img],
+                config={'response_mime_type': 'application/json'}
             )
+            
+            # Extract text and parse JSON
             data = json.loads(resp.text)
             gtin = data.get("gtin", "")
             
             # Validation
-            if extract_gtin_from_raw(gtin):
-                 return extract_gtin_from_raw(gtin)
+            validated_gtin = extract_gtin_from_raw(gtin)
+            if validated_gtin:
+                 return validated_gtin
             
             # If no exception and no GTIN found, break early to avoid endless retries on bad images
             break 
             
         except Exception as e:
-            err_str = str(e)
-            if "429" in err_str or "Quota exceeded" in err_str:
+            err_str = str(e).lower()
+            if "429" in err_str or "quota" in err_str:
                 # Identify specific quota type
                 quota_type = "Unknown Quota"
-                if "GenerateRequestsPerMinutePerProjectPerModel" in err_str:
+                if "requestsperminute" in err_str:
                     quota_type = "Requests Per Minute (RPM)"
-                elif "GenerateRequestsPerDayPerProjectPerModel" in err_str:
+                elif "requestsperday" in err_str:
                     quota_type = "Daily Request Limit (RPD)"
-                elif "GenerateContentInputTokensPerModelPerMinute" in err_str:
+                elif "tokensperminute" in err_str:
                     quota_type = "Input Token Limit"
                 
                 if attempt < max_retries - 1:
-                    match = re.search(r"Please retry in ([\d\.]+)s", err_str)
+                    # Attempt to parse delay
+                    match = re.search(r"retry in ([\d\.]+)s", err_str)
                     if match:
                         sleep_time = float(match.group(1)) + 1.0
                     else:
@@ -230,10 +234,10 @@ def main():
         gtin, method = process_image(str(file_path), gemini_key=args.gemini_key)
         if gtin:
             tqdm.write(f"Found GTIN: {gtin} in {file_path.name} (via {method})")
-            results.append({"filename": file_path.name, "gtin": gtin, "status": "validated", "method": method})
+            results.append({"filename": file_path.name, "gtin": gtin, "gtin_detection_status": "validated", "gtin_detection_method": method})
         else:
             tqdm.write(f"No valid GTIN found in {file_path.name}")
-            results.append({"filename": file_path.name, "gtin": "", "status": "invalid", "method": ""})
+            results.append({"filename": file_path.name, "gtin": "", "gtin_detection_status": "invalid", "gtin_detection_method": ""})
 
     if args.csv:
         csv_path = Path(args.csv)
