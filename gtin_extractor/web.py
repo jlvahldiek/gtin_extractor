@@ -104,6 +104,55 @@ def _build_app() -> Any:
             remove_duplicates=remove_duplicates,
         )
 
+    @app.route("/api/models", methods=["POST"])
+    def api_models() -> Response:
+        """Return available Gemini models that support generateContent.
+
+        Expects a JSON body with an optional ``key`` field (Gemini API key).
+        Falls back to a static list when the key is absent or the API call fails.
+        """
+        _FALLBACK_MODELS = [
+            "gemini-2.0-flash",
+            "gemini-1.5-pro",
+            "gemini-1.5-flash",
+        ]
+
+        body = request.get_json(silent=True) or {}
+        api_key = (body.get("key") or "").strip()
+        if not api_key:
+            return Response(
+                json.dumps({"models": _FALLBACK_MODELS, "error": None}),
+                mimetype="application/json",
+            )
+
+        try:
+            from google import genai  # type: ignore[import]
+
+            client = genai.Client(api_key=api_key)
+            models: list[str] = []
+            for model in client.models.list():
+                name: str = model.name or ""
+                # Strip the "models/" resource prefix used by the API
+                short_name = name.removeprefix("models/")
+                # Only include Gemini models that support text generation
+                supported = model.supported_actions or []
+                if "gemini" in short_name and "generateContent" in supported:
+                    models.append(short_name)
+
+            if not models:
+                models = _FALLBACK_MODELS
+
+            return Response(
+                json.dumps({"models": models, "error": None}),
+                mimetype="application/json",
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Failed to list Gemini models: %s", exc)
+            return Response(
+                json.dumps({"models": _FALLBACK_MODELS, "error": str(exc)}),
+                mimetype="application/json",
+            )
+
     @app.route("/download", methods=["POST"])
     def download() -> Response:
         """Generate and return the results as a downloadable CSV."""
