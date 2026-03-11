@@ -166,7 +166,7 @@ class TestProcessImage:
         with patch("gtin_extractor.readers.decode_barcode_pyzbar", return_value=""), \
              patch("gtin_extractor.readers.decode_barcode_zxing", return_value=""), \
              patch("gtin_extractor.gemini_integration.decode_barcode_gemini",
-                   return_value="00012345678905") as mock_gemini:
+                   return_value="00012345678905"):
             gtin, method = process_image(img_path, gemini_key="fake-key")
 
         assert gtin == "00012345678905"

@@ -210,3 +210,4 @@ __marimo__/
 fotos
 *.csv
 gtin_extractor.code-workspace
+.DS_Store
