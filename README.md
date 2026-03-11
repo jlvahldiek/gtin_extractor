@@ -1,32 +1,66 @@
-# AI-Only Product Extraction with GTIN Validation
+# GTIN Barcode Extractor
 
-This Python script performs **batch AI-based extraction** of product information (GTIN, reference, manufacturer, product name, product size) from images using **OpenAI GPT‑5.1**. It validates GTINs using the official checksum algorithm.
+A robust Python tool for batch extracting and validating GTINs (Global Trade Item Numbers) from product photos. It uses multiple barcode libraries and an AI-powered fallback to ensure maximum detection rates even for difficult, rotated, or partially obscured labels.
 
 ---
 
 ## Features
 
-- AI-only extraction (no barcode libraries)
-- Supports **HEIC, JPEG, PNG, WebP**
-- Automatic **HEIC → JPEG conversion** on macOS
-- Parallel processing for batch speed
-- Outputs CSV with `gtin_valid` and `confidence` columns
-- Optional OCR-like correction of GTIN digits
+- **Multi-Library Detection**: Combines `pyzbar` and `zxing-cpp` for industry-standard barcode scanning.
+- **Manual & Native Rotation**: Manually rotates images to find barcodes in any orientation.
+- **GS1 Support**: Intelligent parsing of GS1-formatted strings (e.g., extracting GTIN from `(01)0871...`).
+- **Gemini AI Fallback**: Uses the modern `google-genai` SDK and `gemini-2.0-flash` (or newer) to analyze photos where traditional scans fail.
+- **MPO Support**: Robust handling of Multi-Picture Object (MPO) formats and other non-standard image types.
+- **Batch Processing**: Scans entire directories with a high-performance progress bar (`tqdm`).
+- **Detection Tracking**: Tracks and records which method successfully found each GTIN.
+- **CSV Export**: Detailed reporting including filename, GTIN, validation status, and extraction method.
 
 ---
 
 ## Requirements
 
-- Python 3.11+
-- macOS (for built-in `sips`) or modify for other OS image conversion
-- OpenAI API Key
+### Non-Python Dependencies
+The following system libraries are required for the barcode scanning packages:
 
-Install Python dependencies:
+- **macOS**: `brew install zbar`
+- **Linux**: `sudo apt-get install libzbar0`
+
+### Python Dependencies
+Install the required packages via pip:
 
 ```bash
 pip install -r requirements.txt
+```
 
-## Run
-export OPENAI_API_KEY="your_api_key_here"
+---
 
-python3 batch_ai_gtin_validated.py "Extract product info" ./fotos batch_products_validated.csv 4
+## Usage
+
+### Basic Scan
+Process all images in the default `fotos/` directory:
+
+```bash
+python3 gtin_barcode_extractor.py fotos/ --csv output.csv
+```
+
+### With AI Fallback
+Use a Google Gemini API key to enable AI-powered extraction for failed barcodes:
+
+```bash
+python3 gtin_barcode_extractor.py fotos/ --gemini-key YOUR_API_KEY --csv results.csv
+```
+
+### Advanced Options
+- `directory`: The source folder containing images (default: `fotos`).
+- `--csv`: Path to the output CSV file.
+- `--gemini-key`: Your Google Gemini API key (enables AI fallback).
+- `--limit`: Limit the number of files processed (e.g., `--limit 5`).
+
+---
+
+## How It Works
+
+1. **Scan Phase 1 (`pyzbar`)**: Tries to find a barcode using `pyzbar` at 0, 90, 180, and 270-degree rotations.
+2. **Scan Phase 2 (`zxing-cpp`)**: Falls back to `zxing-cpp` with native rotation and downscaling features enabled.
+3. **Scan Phase 3 (Gemini AI)**: If enabled, sends the image to Google's Gemini API for intelligent visual extraction.
+4. **Validation**: Every extracted string is passed through a GTIN validation routine (length check and checksum algorithm) before being recorded.
