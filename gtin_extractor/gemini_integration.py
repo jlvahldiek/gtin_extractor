@@ -55,9 +55,7 @@ def _gemini_retry(
                 if attempt < max_retries - 1:
                     match = re.search(r"retry in ([\d\.]+)s", err_str)
                     sleep_time = (
-                        float(match.group(1)) + 1.0
-                        if match
-                        else base_delay * (attempt + 1)
+                        float(match.group(1)) + 1.0 if match else base_delay * (attempt + 1)
                     )
                     logger.warning(
                         "Gemini %s hit. Retrying in %.1fs… (attempt %d/%d)",
@@ -68,9 +66,7 @@ def _gemini_retry(
                     )
                     time.sleep(sleep_time)
                 else:
-                    logger.error(
-                        "Gemini %s exceeded after %d retries.", quota_type, max_retries
-                    )
+                    logger.error("Gemini %s exceeded after %d retries.", quota_type, max_retries)
             else:
                 logger.error("Gemini API error: %s", exc, exc_info=True)
                 break

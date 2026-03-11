@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from gtin_extractor.validation import extract_gtin_from_raw, is_valid_gtin_checksum
 
-
 # ---------------------------------------------------------------------------
 # is_valid_gtin_checksum
 # ---------------------------------------------------------------------------
+
 
 class TestIsValidGtinChecksum:
     """Tests for the GS1 checksum algorithm."""
@@ -60,6 +60,7 @@ class TestIsValidGtinChecksum:
 # ---------------------------------------------------------------------------
 # extract_gtin_from_raw
 # ---------------------------------------------------------------------------
+
 
 class TestExtractGtinFromRaw:
     """Tests for raw barcode string GTIN extraction."""

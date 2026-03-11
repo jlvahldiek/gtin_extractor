@@ -90,9 +90,7 @@ class TestCSVWriter:
 
     def test_multiple_rows(self, tmp_path):
         csv_path = tmp_path / "out.csv"
-        rows_in = [
-            build_row(f"img{i}.png", "", "", {}) for i in range(5)
-        ]
+        rows_in = [build_row(f"img{i}.png", "", "", {}) for i in range(5)]
         with CSVWriter(csv_path) as writer:
             for row in rows_in:
                 writer.writerow(row)

@@ -33,9 +33,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--csv", help="Path to output CSV file", default=None)
     parser.add_argument("--gemini-key", help="Google Gemini API Key", default=None)
-    parser.add_argument(
-        "--gemini-model", help="Gemini model to use", default=None
-    )
+    parser.add_argument("--gemini-model", help="Gemini model to use", default=None)
     parser.add_argument(
         "--limit", type=int, help="Limit the number of files to process", default=None
     )
@@ -46,9 +44,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Logging verbosity",
     )
     parser.add_argument("--log-file", help="Path to log file", default=None)
-    parser.add_argument(
-        "--config", help="Path to config.yaml file", default=None
-    )
+    parser.add_argument("--config", help="Path to config.yaml file", default=None)
     return parser.parse_args(argv)
 
 

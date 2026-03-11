@@ -28,6 +28,7 @@ class TestDecodeBarcodeReaders:
         # Patch the import inside the function
         with patch.dict("sys.modules", {"pyzbar": MagicMock(), "pyzbar.pyzbar": MagicMock()}):
             import sys
+
             pyzbar_mock = sys.modules["pyzbar.pyzbar"]
             pyzbar_mock.decode = MagicMock(return_value=[mock_obj])
             result = decode_barcode_pyzbar(mock_image)
@@ -41,6 +42,7 @@ class TestDecodeBarcodeReaders:
 
         with patch.dict("sys.modules", {"pyzbar": MagicMock(), "pyzbar.pyzbar": MagicMock()}):
             import sys
+
             pyzbar_mock = sys.modules["pyzbar.pyzbar"]
             pyzbar_mock.decode = MagicMock(return_value=[])
             result = decode_barcode_pyzbar(mock_image)
@@ -54,6 +56,7 @@ class TestDecodeBarcodeReaders:
 
         with patch.dict("sys.modules", {"pyzbar": MagicMock(), "pyzbar.pyzbar": MagicMock()}):
             import sys
+
             pyzbar_mock = sys.modules["pyzbar.pyzbar"]
             pyzbar_mock.decode = MagicMock(side_effect=RuntimeError("pyzbar fail"))
             result = decode_barcode_pyzbar(mock_image)
@@ -74,6 +77,7 @@ class TestDecodeBarcodeReaders:
 
         with patch.dict("sys.modules", {"zxingcpp": MagicMock()}):
             import sys
+
             zxing_mock = sys.modules["zxingcpp"]
             zxing_mock.read_barcodes = MagicMock(return_value=[mock_barcode])
             result = decode_barcode_zxing(mock_image)
@@ -85,6 +89,7 @@ class TestDecodeBarcodeReaders:
         mock_image = MagicMock()
         with patch.dict("sys.modules", {"zxingcpp": MagicMock()}):
             import sys
+
             zxing_mock = sys.modules["zxingcpp"]
             zxing_mock.read_barcodes = MagicMock(return_value=[])
             result = decode_barcode_zxing(mock_image)
@@ -96,6 +101,7 @@ class TestDecodeBarcodeReaders:
         mock_image = MagicMock()
         with patch.dict("sys.modules", {"zxingcpp": MagicMock()}):
             import sys
+
             zxing_mock = sys.modules["zxingcpp"]
             zxing_mock.read_barcodes = MagicMock(side_effect=RuntimeError("zxing fail"))
             result = decode_barcode_zxing(mock_image)
@@ -105,6 +111,7 @@ class TestDecodeBarcodeReaders:
 # ------------------------------------------------------------------
 # process_image
 # ------------------------------------------------------------------
+
 
 class TestProcessImage:
     """Tests for the high-level process_image orchestration."""
@@ -123,8 +130,10 @@ class TestProcessImage:
 
         img_path = self._make_tmp_image(tmp_path)
 
-        with patch("gtin_extractor.readers.decode_barcode_pyzbar", return_value=""), \
-             patch("gtin_extractor.readers.decode_barcode_zxing", return_value=""):
+        with (
+            patch("gtin_extractor.readers.decode_barcode_pyzbar", return_value=""),
+            patch("gtin_extractor.readers.decode_barcode_zxing", return_value=""),
+        ):
             gtin, method = process_image(img_path)
 
         assert gtin == ""
@@ -135,8 +144,10 @@ class TestProcessImage:
 
         img_path = self._make_tmp_image(tmp_path)
 
-        with patch("gtin_extractor.readers.decode_barcode_pyzbar", return_value="00012345678905"), \
-             patch("gtin_extractor.readers.decode_barcode_zxing", return_value="") as mock_zxing:
+        with (
+            patch("gtin_extractor.readers.decode_barcode_pyzbar", return_value="00012345678905"),
+            patch("gtin_extractor.readers.decode_barcode_zxing", return_value="") as mock_zxing,
+        ):
             gtin, method = process_image(img_path)
 
         assert gtin == "00012345678905"
@@ -148,8 +159,10 @@ class TestProcessImage:
 
         img_path = self._make_tmp_image(tmp_path)
 
-        with patch("gtin_extractor.readers.decode_barcode_pyzbar", return_value=""), \
-             patch("gtin_extractor.readers.decode_barcode_zxing", return_value="00012345678905"):
+        with (
+            patch("gtin_extractor.readers.decode_barcode_pyzbar", return_value=""),
+            patch("gtin_extractor.readers.decode_barcode_zxing", return_value="00012345678905"),
+        ):
             gtin, method = process_image(img_path)
 
         assert gtin == "00012345678905"
@@ -160,10 +173,14 @@ class TestProcessImage:
 
         img_path = self._make_tmp_image(tmp_path)
 
-        with patch("gtin_extractor.readers.decode_barcode_pyzbar", return_value=""), \
-             patch("gtin_extractor.readers.decode_barcode_zxing", return_value=""), \
-             patch("gtin_extractor.gemini_integration.decode_barcode_gemini",
-                   return_value="00012345678905"):
+        with (
+            patch("gtin_extractor.readers.decode_barcode_pyzbar", return_value=""),
+            patch("gtin_extractor.readers.decode_barcode_zxing", return_value=""),
+            patch(
+                "gtin_extractor.gemini_integration.decode_barcode_gemini",
+                return_value="00012345678905",
+            ),
+        ):
             gtin, method = process_image(img_path, gemini_key="fake-key")
 
         assert gtin == "00012345678905"
