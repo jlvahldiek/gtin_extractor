@@ -10,7 +10,6 @@ A robust Python tool for batch extracting and validating GTINs (Global Trade Ite
 - **Manual & Native Rotation**: Manually rotates images to find barcodes in any orientation.
 - **GS1 Support**: Intelligent parsing of GS1-formatted strings (e.g., extracting GTIN from `(01)0871...`).
 - **Gemini AI Fallback**: Uses the modern `google-genai` SDK and `gemini-2.0-flash` (or newer) to analyze photos where traditional scans fail.
-- **MPO Support**: Robust handling of Multi-Picture Object (MPO) formats and other non-standard image types.
 - **Batch Processing**: Scans entire directories with a high-performance progress bar (`tqdm`).
 - **Detection Tracking**: Tracks and records which method successfully found each GTIN.
 - **CSV Export**: Detailed reporting including filename, GTIN, validation status, and extraction method.
@@ -62,5 +61,21 @@ python3 gtin_barcode_extractor.py fotos/ --gemini-key YOUR_API_KEY --csv results
 
 1. **Scan Phase 1 (`pyzbar`)**: Tries to find a barcode using `pyzbar` at 0, 90, 180, and 270-degree rotations.
 2. **Scan Phase 2 (`zxing-cpp`)**: Falls back to `zxing-cpp` with native rotation and downscaling features enabled.
-3. **Scan Phase 3 (Gemini AI)**: If enabled, sends the image to Google's Gemini API for intelligent visual extraction.
-4. **Validation**: Every extracted string is passed through a GTIN validation routine (length check and checksum algorithm) before being recorded.
+3. **Scan Phase 3 (Gemini GTIN fallback)**: If enabled, sends the image to Google's Gemini API for intelligent visual GTIN extraction.
+4. **Product Analysis (Gemini)**: After GTIN detection, sends each image to Gemini to extract product metadata: manufacturer, REF number, product name, and key specifications.
+5. **Validation**: Every extracted GTIN is validated using a length check and the GS1 checksum algorithm before being recorded.
+
+---
+
+## Output CSV Columns
+
+| Column | Description |
+|---|---|
+| `filename` | Source image filename |
+| `gtin` | Extracted & validated GTIN (empty if none found) |
+| `gtin_detection_status` | `validated` or `invalid` |
+| `gtin_detection_method` | `pyzbar`, `zxing`, or `gemini` |
+| `manufacturer` | Brand/manufacturer name extracted by Gemini |
+| `ref` | REF/catalog number extracted by Gemini |
+| `product_name` | Commercial product name extracted by Gemini |
+| `product_specs` | Key product specifications extracted by Gemini (semicolon-separated) |
