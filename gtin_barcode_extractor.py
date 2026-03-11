@@ -100,7 +100,7 @@ def decode_barcode_zxing(image: Image.Image) -> str:
     return ""
 
 
-def decode_barcode_gemini(image_path: str, api_key: str) -> str:
+def decode_barcode_gemini(image_path: str, api_key: str, model: str = 'gemini-2.0-flash') -> str:
     """Fallback: Decode barcode using Gemini APIs (via new google-genai SDK)."""
     if not api_key:
         return ""
@@ -124,7 +124,7 @@ def decode_barcode_gemini(image_path: str, api_key: str) -> str:
             img.thumbnail((1600, 1600))
             
             resp = client.models.generate_content(
-                model='gemini-2.5-flash',
+                model=model,
                 contents=[prompt, img],
                 config={'response_mime_type': 'application/json'}
             )
@@ -172,7 +172,83 @@ def decode_barcode_gemini(image_path: str, api_key: str) -> str:
     return ""
 
 
-def process_image(image_path: str, gemini_key: str = None) -> tuple[str, str]:
+def _gemini_retry(client, model, prompt_parts, max_retries=5, base_delay=10):
+    """Shared retry helper for Gemini API calls. Returns parsed JSON dict or {}."""
+    for attempt in range(max_retries):
+        try:
+            resp = client.models.generate_content(
+                model=model,
+                contents=prompt_parts,
+                config={'response_mime_type': 'application/json'}
+            )
+            return json.loads(resp.text)
+        except Exception as e:
+            err_str = str(e).lower()
+            if "429" in err_str or "quota" in err_str:
+                quota_type = "Unknown Quota"
+                if "requestsperminute" in err_str:
+                    quota_type = "Requests Per Minute (RPM)"
+                elif "requestsperday" in err_str:
+                    quota_type = "Daily Request Limit (RPD)"
+                elif "tokensperminute" in err_str:
+                    quota_type = "Input Token Limit"
+                if attempt < max_retries - 1:
+                    match = re.search(r"retry in ([\d\.]+)s", err_str)
+                    sleep_time = float(match.group(1)) + 1.0 if match else base_delay * (attempt + 1)
+                    tqdm.write(f"Gemini {quota_type} hit. Retrying in {sleep_time:.1f}s...")
+                    time.sleep(sleep_time)
+                else:
+                    tqdm.write(f"Gemini error: {quota_type} exceeded after {max_retries} retries.")
+            else:
+                tqdm.write(f"Gemini error: {e}")
+                break
+    return {}
+
+
+def analyze_product_gemini(image_path: str, api_key: str, model: str = 'gemini-2.0-flash') -> dict:
+    """Analyze a product label image and return metadata using Gemini.
+    
+    Returns a dict with keys: manufacturer, ref, ref_confidence, product_name, product_specs.
+    Returns empty dict on failure.
+    """
+    if not api_key:
+        return {}
+    
+    client = genai.Client(api_key=api_key)
+    prompt = (
+        "Analyze this product label and extract the following information. "
+        "Return ONLY a JSON object with these exact keys:\n"
+        "- 'manufacturer': The brand or manufacturer name.\n"
+        "- 'ref': The REF or catalog/article number (often labeled 'REF', 'Cat.', 'Art.', or 'No.').\n"
+        "- 'ref_confidence': Your confidence in the extracted REF number. "
+        "Use exactly one of: 'high' (clearly labeled as REF/Cat/Art), "
+        "'medium' (plausible but ambiguous label), or 'low' (uncertain or inferred).\n"
+        "- 'product_name': The commercial name or description of the product.\n"
+        "- 'product_specs': A concise summary of key product specifications "
+        "(e.g., size, material, quantity, sterility). Separate multiple specs with a semicolon.\n"
+        "If a field is not found, use an empty string.\n"
+        "Example: {\"manufacturer\": \"Medline\", \"ref\": \"DYND74155\", \"ref_confidence\": \"high\", "
+        "\"product_name\": \"Sterile Gloves\", \"product_specs\": \"Size 7.5; Latex; Sterile\"}"
+    )
+    
+    try:
+        img = Image.open(image_path)
+        img = img.convert("RGB")
+        img.thumbnail((1600, 1600))
+        data = _gemini_retry(client, model, [prompt, img])
+        return {
+            "manufacturer": data.get("manufacturer", ""),
+            "ref": data.get("ref", ""),
+            "ref_confidence": data.get("ref_confidence", ""),
+            "product_name": data.get("product_name", ""),
+            "product_specs": data.get("product_specs", ""),
+        }
+    except Exception as e:
+        tqdm.write(f"Product analysis error for {image_path}: {e}")
+        return {}
+
+
+def process_image(image_path: str, gemini_key: str = None, gemini_model: str = 'gemini-2.0-flash') -> tuple[str, str]:
     """Process a single image, attempting to read GTIN. Returns (gtin, method)."""
     try:
         with Image.open(image_path) as img:
@@ -193,7 +269,7 @@ def process_image(image_path: str, gemini_key: str = None) -> tuple[str, str]:
                 
         # If both primary methods fail, try Gemini
         if gemini_key:
-            result = decode_barcode_gemini(image_path, gemini_key)
+            result = decode_barcode_gemini(image_path, gemini_key, model=gemini_model)
             if result:
                 return result, "gemini"
                 
@@ -208,6 +284,7 @@ def main():
     parser.add_argument("directory", nargs="?", default="fotos", help="Directory containing images")
     parser.add_argument("--csv", help="Path to output CSV file (e.g., results.csv)", default=None)
     parser.add_argument("--gemini-key", help="Google Gemini API Key for fallback processing", default=None)
+    parser.add_argument("--gemini-model", help="Gemini model to use", default="gemini-2.0-flash")
     parser.add_argument("--limit", type=int, help="Limit the number of files to process", default=None)
     args = parser.parse_args()
 
@@ -221,34 +298,66 @@ def main():
     # Supported extensions
     valid_exts = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".gif"}
     
-    results = []
-    
     # Filter valid files beforehand so tqdm knows the total length
     files_to_process = [f for f in dir_path.iterdir() if f.is_file() and f.suffix.lower() in valid_exts]
     
     if args.limit:
         files_to_process = files_to_process[:args.limit]
         print(f"Limiting processing to the first {args.limit} files.")
-    
-    for file_path in tqdm(files_to_process, desc="Scanning images"):
-        gtin, method = process_image(str(file_path), gemini_key=args.gemini_key)
-        if gtin:
-            tqdm.write(f"Found GTIN: {gtin} in {file_path.name} (via {method})")
-            results.append({"filename": file_path.name, "gtin": gtin, "gtin_detection_status": "validated", "gtin_detection_method": method})
-        else:
-            tqdm.write(f"No valid GTIN found in {file_path.name}")
-            results.append({"filename": file_path.name, "gtin": "", "gtin_detection_status": "invalid", "gtin_detection_method": ""})
 
+    results = []
+
+    fieldnames = [
+        "filename", "gtin", "gtin_detection_status", "gtin_detection_method",
+        "manufacturer", "ref", "ref_confidence", "product_name", "product_specs"
+    ]
+    
+    csv_file = None
+    writer = None
     if args.csv:
         csv_path = Path(args.csv)
         try:
-            with open(csv_path, 'w', newline='', encoding='utf-8') as f:
-                writer = csv.DictWriter(f, fieldnames=["filename", "gtin", "gtin_detection_status", "gtin_detection_method"])
-                writer.writeheader()
-                writer.writerows(results)
-            print(f"\nResults successfully exported to {csv_path}")
+            csv_file = open(csv_path, 'w', newline='', encoding='utf-8')
+            writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+            writer.writeheader()
+            csv_file.flush()
         except Exception as e:
-            print(f"\nError writing to CSV {csv_path}: {e}")
+            print(f"Error opening CSV file {csv_path}: {e}")
+            return
+
+    try:
+        for file_path in tqdm(files_to_process, desc="Scanning images"):
+            gtin, method = process_image(str(file_path), gemini_key=args.gemini_key, gemini_model=args.gemini_model)
+            product_info = analyze_product_gemini(str(file_path), api_key=args.gemini_key, model=args.gemini_model)
+            
+            if gtin:
+                tqdm.write(f"Found GTIN: {gtin} in {file_path.name} (via {method})")
+            else:
+                tqdm.write(f"No valid GTIN found in {file_path.name}")
+            
+            row = {
+                "filename": file_path.name,
+                "gtin": gtin,
+                "gtin_detection_status": "validated" if gtin else "invalid",
+                "gtin_detection_method": method,
+                "manufacturer": product_info.get("manufacturer", ""),
+                "ref": product_info.get("ref", ""),
+                "ref_confidence": product_info.get("ref_confidence", ""),
+                "product_name": product_info.get("product_name", ""),
+                "product_specs": product_info.get("product_specs", ""),
+            }
+            results.append(row)
+            
+            if writer:
+                writer.writerow(row)
+                csv_file.flush()
+
+        if args.csv:
+            print(f"\nResults successfully exported to {args.csv}")
+            
+    finally:
+        if csv_file:
+            csv_file.close()
 
 if __name__ == "__main__":
     main()
