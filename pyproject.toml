@@ -32,6 +32,7 @@ dependencies = [
 
 [project.optional-dependencies]
 config = ["PyYAML>=6.0", "python-dotenv>=1.0.0"]
+web = ["Flask>=3.0.0"]
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
@@ -45,6 +46,7 @@ dev = [
 
 [project.scripts]
 gtin-extractor = "gtin_extractor.__main__:main"
+gtin-web = "gtin_extractor.web:main"
 
 [project.urls]
 Homepage = "https://github.com/jlvahldiek/gtin_extractor"

@@ -1,0 +1,42 @@
+# docker-compose.yml – GTIN Extractor
+#
+# Quickstart:
+#   docker compose up
+# Then open http://localhost:5000 in your browser.
+#
+# To process images from a local folder via CLI instead:
+#   docker compose run --rm gtin-cli /data --csv /data/results.csv
+#
+# Set GTIN_GEMINI_API_KEY in a .env file or pass it on the command line
+# to enable Gemini AI fallback.
+
+services:
+  # ── Web UI ────────────────────────────────────────────────────────────────
+  gtin-web:
+    build: .
+    image: gtin_extractor:latest
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/data        # mount a local ./data directory to /data inside the container
+    environment:
+      - GTIN_GEMINI_API_KEY=${GTIN_GEMINI_API_KEY:-}
+      - GTIN_GEMINI_MODEL=${GTIN_GEMINI_MODEL:-gemini-2.0-flash}
+    restart: unless-stopped
+
+  # ── CLI (one-shot batch processor) ───────────────────────────────────────
+  gtin-cli:
+    build: .
+    image: gtin_extractor:latest
+    volumes:
+      - ./data:/data
+    environment:
+      - GTIN_GEMINI_API_KEY=${GTIN_GEMINI_API_KEY:-}
+      - GTIN_GEMINI_MODEL=${GTIN_GEMINI_MODEL:-gemini-2.0-flash}
+    # Override the default CMD to run the CLI tool
+    command: >
+      python -m gtin_extractor /data
+      --csv /data/results.csv
+      --remove-duplicates
+    profiles:
+      - cli     # only start with: docker compose --profile cli up

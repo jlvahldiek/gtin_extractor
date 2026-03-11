@@ -91,6 +91,32 @@ class CSVWriter:
             self._file.flush()
 
 
+def deduplicate_rows(rows: list[dict]) -> list[dict]:
+    """Remove duplicate rows that share the same non-empty GTIN value.
+
+    The first occurrence of each GTIN is kept; subsequent duplicates are
+    dropped.  Rows where *gtin* is empty (no barcode found) are always
+    kept because they represent distinct failed-detection images.
+
+    Args:
+        rows: List of row dicts keyed by :data:`FIELDNAMES`.
+
+    Returns:
+        New list with duplicates removed.
+    """
+    seen: set[str] = set()
+    result: list[dict] = []
+    for row in rows:
+        gtin = row.get("gtin", "")
+        if gtin and gtin in seen:
+            logger.debug("Dropping duplicate GTIN %s (file: %s)", gtin, row.get("filename"))
+            continue
+        if gtin:
+            seen.add(gtin)
+        result.append(row)
+    return result
+
+
 def write_results_csv(rows: Iterator[dict], path: str | Path) -> None:
     """Write an iterable of result rows to a CSV file at *path*.
 
