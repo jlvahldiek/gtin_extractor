@@ -168,8 +168,8 @@ def decode_barcode_gemini(image_path: str, api_key: str) -> str:
     return ""
 
 
-def process_image(image_path: str, gemini_key: str = None) -> str:
-    """Process a single image, attempting to read GTIN."""
+def process_image(image_path: str, gemini_key: str = None) -> tuple[str, str]:
+    """Process a single image, attempting to read GTIN. Returns (gtin, method)."""
     try:
         with Image.open(image_path) as img:
             # We need to test pyzbar with rotations since it doesn't do it itself
@@ -180,23 +180,23 @@ def process_image(image_path: str, gemini_key: str = None) -> str:
                 rotated_img = img.rotate(angle, expand=True) if angle != 0 else img
                 result = decode_barcode_pyzbar(rotated_img)
                 if result:
-                    return result
+                    return result, "pyzbar"
             
             # If pyzbar fails, try zxing-cpp (which handles rotation internally)
             result = decode_barcode_zxing(img)
             if result:
-                return result
+                return result, "zxing"
                 
         # If both primary methods fail, try Gemini
         if gemini_key:
             result = decode_barcode_gemini(image_path, gemini_key)
             if result:
-                return result
+                return result, "gemini"
                 
     except Exception as e:
         tqdm.write(f"Error processing {image_path}: {e}")
         
-    return ""
+    return "", ""
 
 
 def main():
@@ -204,6 +204,7 @@ def main():
     parser.add_argument("directory", nargs="?", default="fotos", help="Directory containing images")
     parser.add_argument("--csv", help="Path to output CSV file (e.g., results.csv)", default=None)
     parser.add_argument("--gemini-key", help="Google Gemini API Key for fallback processing", default=None)
+    parser.add_argument("--limit", type=int, help="Limit the number of files to process", default=None)
     args = parser.parse_args()
 
     dir_path = Path(args.directory)
@@ -221,20 +222,24 @@ def main():
     # Filter valid files beforehand so tqdm knows the total length
     files_to_process = [f for f in dir_path.iterdir() if f.is_file() and f.suffix.lower() in valid_exts]
     
+    if args.limit:
+        files_to_process = files_to_process[:args.limit]
+        print(f"Limiting processing to the first {args.limit} files.")
+    
     for file_path in tqdm(files_to_process, desc="Scanning images"):
-        gtin = process_image(str(file_path), gemini_key=args.gemini_key)
+        gtin, method = process_image(str(file_path), gemini_key=args.gemini_key)
         if gtin:
-            tqdm.write(f"Found GTIN: {gtin} in {file_path.name}")
-            results.append({"filename": file_path.name, "gtin": gtin, "status": "OK"})
+            tqdm.write(f"Found GTIN: {gtin} in {file_path.name} (via {method})")
+            results.append({"filename": file_path.name, "gtin": gtin, "status": "validated", "method": method})
         else:
             tqdm.write(f"No valid GTIN found in {file_path.name}")
-            results.append({"filename": file_path.name, "gtin": "", "status": "FAIL"})
+            results.append({"filename": file_path.name, "gtin": "", "status": "invalid", "method": ""})
 
     if args.csv:
         csv_path = Path(args.csv)
         try:
             with open(csv_path, 'w', newline='', encoding='utf-8') as f:
-                writer = csv.DictWriter(f, fieldnames=["filename", "gtin", "status"])
+                writer = csv.DictWriter(f, fieldnames=["filename", "gtin", "gtin_detection_status", "gtin_detection_method"])
                 writer.writeheader()
                 writer.writerows(results)
             print(f"\nResults successfully exported to {csv_path}")
