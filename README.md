@@ -183,14 +183,39 @@ gtin_extractor/          ← Python package
 └── templates/           ← HTML templates for Web UI
     ├── index.html
     └── results.html
+sample_images/           ← Example product label photos for testing & demo
+├── performa_catheter.jpg   (GTIN 00884450003534 – Merit Medical Performa)
+├── prelude_sheath.jpg      (GTIN 10884450614911 – Merit Medical Prelude)
+├── radifocus_introducer.jpg(GTIN 08935221212180 – Terumo Radifocus II)
+└── README.md
 tests/
 ├── conftest.py
 ├── test_validation.py
 ├── test_readers.py
 ├── test_csv_export.py
-└── test_config.py
+├── test_config.py
+└── test_sample_images.py← Integration tests using real sample images
 Dockerfile               ← Docker image definition
 docker-compose.yml       ← Docker Compose configuration
+```
+
+---
+
+## Sample Images
+
+The `sample_images/` directory contains three ready-to-scan medical device
+product label images for demonstration and integration testing:
+
+| File | Product | GTIN |
+|---|---|---|
+| `performa_catheter.jpg` | Merit Medical – Performa® Angiographic Catheter | `00884450003534` |
+| `prelude_sheath.jpg` | Merit Medical – Prelude® Sheath Introducer | `10884450614911` |
+| `radifocus_introducer.jpg` | Terumo – Radifocus® Introducer II | `08935221212180` |
+
+Try the samples immediately after installation:
+
+```bash
+python -m gtin_extractor sample_images/ --csv sample_results.csv
 ```
 
 ---

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 # ---------------------------------------------------------------------------
@@ -29,6 +31,23 @@ INVALID_GTINS = [
     "00012345678900",  # wrong check digit
     "5901234123450",  # wrong check digit on 13-digit
 ]
+
+# ---------------------------------------------------------------------------
+# Sample images metadata (mirrors sample_images/ directory)
+# ---------------------------------------------------------------------------
+
+#: Root directory of the repository (parent of ``tests/``).
+REPO_ROOT = Path(__file__).parent.parent
+
+#: Directory containing sample product label images.
+SAMPLE_IMAGES_DIR = REPO_ROOT / "sample_images"
+
+#: Expected GTINs for each sample image file.
+SAMPLE_IMAGE_GTINS: dict[str, str] = {
+    "performa_catheter.jpg": "00884450003534",
+    "prelude_sheath.jpg": "10884450614911",
+    "radifocus_introducer.jpg": "08935221212180",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -58,3 +77,10 @@ def valid_gtin_8() -> str:
 def tmp_config_dir(tmp_path):
     """Return a temporary directory for config file tests."""
     return tmp_path
+
+
+@pytest.fixture
+def sample_images_dir() -> Path:
+    """Return the path to the sample_images/ directory."""
+    return SAMPLE_IMAGES_DIR
+
