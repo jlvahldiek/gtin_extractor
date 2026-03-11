@@ -17,25 +17,29 @@
 
 FROM python:3.12-slim
 
-# Install system dependencies required by pyzbar (libzbar) and zxing-cpp
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        libzbar0 \
-        libgl1 \
-    && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /app
 
 # Copy dependency manifests first for better layer caching
 COPY requirements.txt pyproject.toml setup.py ./
 COPY gtin_extractor/ ./gtin_extractor/
 
-# Install Python dependencies including optional Flask for the Web UI
-RUN pip install --no-cache-dir \
+# Install system runtime deps (libzbar0, libgl1) plus temporary C++ build tools
+# needed to compile zxing-cpp from source on platforms without a pre-built wheel
+# (e.g. arm64).  Build tools are purged after the pip install to keep the image slim.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libzbar0 \
+        libgl1 \
+        cmake \
+        make \
+        g++ \
+    && pip install --no-cache-dir \
         -r requirements.txt \
         "Flask>=3.0.0,<4" \
         PyYAML>=6.0 \
         python-dotenv>=1.0.0 \
-    && pip install --no-cache-dir -e .
+    && pip install --no-cache-dir -e . \
+    && apt-get purge -y --auto-remove cmake make g++ \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create a non-root user for security
 RUN useradd -m -u 1000 gtin
