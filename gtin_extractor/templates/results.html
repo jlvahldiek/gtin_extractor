@@ -68,7 +68,7 @@
     {% if rows %}
     <div class="actions">
       <form method="POST" action="/download">
-        <input type="hidden" name="rows_json" value="{{ rows | tojson }}">
+        <input type="hidden" name="rows_json" value='{{ rows | tojson }}'>
         <button type="submit" class="btn btn-primary">⬇ Download CSV</button>
       </form>
     </div>
