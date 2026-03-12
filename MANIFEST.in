@@ -1,0 +1,6 @@
+include README.md
+include LICENSE
+include requirements.txt
+include requirements-dev.txt
+recursive-include gtin_extractor *.py
+recursive-include sample_images *.jpg *.png *.md

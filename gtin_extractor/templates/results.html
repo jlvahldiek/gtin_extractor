@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GTIN Extractor – Results</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f4f6f9; color: #333; }
+    header { background: #1a73e8; color: #fff; padding: 1rem 2rem; display: flex; align-items: center; gap: 1rem; }
+    header h1 { font-size: 1.5rem; font-weight: 600; }
+    header a { color: #fff; font-size: .9rem; text-decoration: underline; }
+    main { max-width: 1100px; margin: 2rem auto; padding: 0 1rem; }
+    .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.12); padding: 1.5rem; margin-bottom: 1.5rem; }
+    .card h2 { font-size: 1.1rem; margin-bottom: 1rem; color: #1a73e8; }
+    .summary { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .stat { background: #e8f0fe; border-radius: 6px; padding: .6rem 1rem; font-size: .9rem; }
+    .stat strong { display: block; font-size: 1.4rem; color: #1a73e8; }
+    .error-list { background: #fff3f3; border: 1px solid #f5c6cb; border-radius: 6px; padding: .75rem 1rem; margin-bottom: 1rem; }
+    .error-list li { font-size: .85rem; color: #721c24; margin-left: 1.2rem; }
+    table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    th { background: #f1f3f4; text-align: left; padding: .5rem .75rem; font-weight: 600; white-space: nowrap; }
+    td { padding: .45rem .75rem; border-bottom: 1px solid #e0e0e0; vertical-align: top; }
+    tr:hover td { background: #fafafa; }
+    .badge { display: inline-block; padding: .15rem .5rem; border-radius: 12px; font-size: .75rem; font-weight: 600; }
+    .badge-ok  { background: #d4edda; color: #155724; }
+    .badge-err { background: #f8d7da; color: #721c24; }
+    .badge-method { background: #e8f0fe; color: #1a73e8; }
+    .actions { display: flex; gap: .75rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .btn { padding: .55rem 1.2rem; border-radius: 5px; font-size: .9rem; cursor: pointer; border: none; }
+    .btn-primary { background: #1a73e8; color: #fff; }
+    .btn-primary:hover { background: #1558b0; }
+    .btn-secondary { background: #e8e8e8; color: #333; }
+    .btn-secondary:hover { background: #d0d0d0; }
+    .no-results { text-align: center; color: #888; padding: 2rem; }
+    .overflow-wrap { overflow-x: auto; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>GTIN Extractor</h1>
+  <a href="/">← Process more images</a>
+</header>
+<main>
+
+  {% if errors %}
+  <div class="card">
+    <h2>⚠️ Warnings</h2>
+    <ul class="error-list">
+      {% for err in errors %}<li>{{ err }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <div class="card">
+    <h2>Results</h2>
+
+    {% set total = rows | length %}
+    {% set found = rows | selectattr('gtin') | list | length %}
+
+    <div class="summary">
+      <div class="stat"><strong>{{ total }}</strong> images processed</div>
+      <div class="stat"><strong>{{ found }}</strong> GTINs found</div>
+      <div class="stat"><strong>{{ total - found }}</strong> not detected</div>
+      {% if remove_duplicates %}<div class="stat"><strong>✓</strong> Duplicates removed</div>{% endif %}
+    </div>
+
+    {% if rows %}
+    <div class="actions">
+      <form method="POST" action="/download">
+        <input type="hidden" name="rows_json" value="{{ rows | tojson }}">
+        <button type="submit" class="btn btn-primary">⬇ Download CSV</button>
+      </form>
+    </div>
+
+    <div class="overflow-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>File</th>
+            <th>GTIN</th>
+            <th>Status</th>
+            <th>Method</th>
+            <th>Manufacturer</th>
+            <th>REF</th>
+            <th>Product Name</th>
+            <th>Specs</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td>{{ row.filename }}</td>
+            <td><code>{{ row.gtin or '—' }}</code></td>
+            <td>
+              {% if row.gtin %}
+              <span class="badge badge-ok">validated</span>
+              {% else %}
+              <span class="badge badge-err">not found</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if row.gtin_detection_method %}
+              <span class="badge badge-method">{{ row.gtin_detection_method }}</span>
+              {% else %}—{% endif %}
+            </td>
+            <td>{{ row.manufacturer or '—' }}</td>
+            <td>{{ row.ref or '—' }}</td>
+            <td>{{ row.product_name or '—' }}</td>
+            <td>{{ row.product_specs or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="no-results">No images were processed.</p>
+    {% endif %}
+  </div>
+
+</main>
+</body>
+</html>
