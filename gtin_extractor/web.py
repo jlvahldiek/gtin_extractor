@@ -55,12 +55,8 @@ def _build_app() -> Any:
         """Remove tasks older than one hour to prevent unbounded memory growth."""
         cutoff = datetime.now(timezone.utc) - timedelta(hours=1)
         with _tasks_lock:
-            expired = [
-                tid
-                for tid, task in _tasks.items()
-                if datetime.fromisoformat(task.get("created_at", datetime.now(timezone.utc).isoformat()))
-                < cutoff
-            ]
+            expired = [tid for tid, task in _tasks.items()
+                       if datetime.fromisoformat(task["created_at"]) < cutoff]
             for tid in expired:
                 del _tasks[tid]
 
