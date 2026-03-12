@@ -7,7 +7,13 @@ from pathlib import Path
 
 import pytest
 
-from gtin_extractor.csv_export import FIELDNAMES, CSVWriter, build_row, deduplicate_rows, write_results_csv
+from gtin_extractor.csv_export import (
+    FIELDNAMES,
+    CSVWriter,
+    build_row,
+    deduplicate_rows,
+    write_results_csv,
+)
 
 
 class TestBuildRow:

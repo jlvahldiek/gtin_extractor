@@ -16,7 +16,6 @@ from tests.conftest import SAMPLE_IMAGE_GTINS, SAMPLE_IMAGES_DIR
 from gtin_extractor.readers import process_image
 from gtin_extractor.validation import is_valid_gtin_checksum
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -52,9 +51,11 @@ class TestSampleImageGtinExtraction:
             f"Expected GTIN {expected_gtin!r} from {filename!r}, "
             f"got {gtin!r} (method={method!r})"
         )
-        assert method in ("pyzbar", "zxing", "gemini"), (
-            f"Unexpected detection method {method!r} for {filename!r}"
-        )
+        assert method in (
+            "pyzbar",
+            "zxing",
+            "gemini",
+        ), f"Unexpected detection method {method!r} for {filename!r}"
 
 
 class TestSampleImageGtinValidity:

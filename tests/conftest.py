@@ -83,4 +83,3 @@ def tmp_config_dir(tmp_path):
 def sample_images_dir() -> Path:
     """Return the path to the sample_images/ directory."""
     return SAMPLE_IMAGES_DIR
-

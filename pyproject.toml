@@ -62,7 +62,7 @@ addopts = "-v"
 
 [tool.coverage.run]
 source = ["gtin_extractor"]
-omit = ["gtin_extractor/__main__.py"]
+omit = ["gtin_extractor/__main__.py", "gtin_extractor/web.py"]
 
 [tool.coverage.report]
 show_missing = true

@@ -37,15 +37,14 @@ def _build_app() -> Any:
     """Create and configure the Flask application."""
     if not _FLASK_AVAILABLE:
         raise RuntimeError(
-            "Flask is required for the Web UI. "
-            "Install it with: pip install gtin_extractor[web]"
+            "Flask is required for the Web UI. " "Install it with: pip install gtin_extractor[web]"
         )
 
     app = Flask(__name__)
     app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100 MB upload limit
 
     @app.route("/", methods=["GET"])
-    def index() -> str:
+    def index() -> Any:
         return render_template("index.html")
 
     @app.route("/process", methods=["POST"])
@@ -83,7 +82,7 @@ def _build_app() -> Any:
                         gemini_model=gemini_model,
                     )
                     product_info = analyze_product_gemini(
-                        str(file_path), api_key=gemini_key, model=gemini_model
+                        str(file_path), api_key=gemini_key or "", model=gemini_model
                     )
                     rows.append(build_row(file_path.name, gtin, method, product_info))
                 except Exception as exc:  # noqa: BLE001
@@ -206,9 +205,7 @@ def main() -> None:
     setup_logging(log_level=args.log_level)
 
     if not _FLASK_AVAILABLE:
-        logger.error(
-            "Flask is not installed. Install it with: pip install gtin_extractor[web]"
-        )
+        logger.error("Flask is not installed. Install it with: pip install gtin_extractor[web]")
         raise SystemExit(1)
 
     app = _build_app()
