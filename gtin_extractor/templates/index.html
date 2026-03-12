@@ -183,6 +183,7 @@ function showFiles(files) {
 
 // ── Submit / async processing ────────────────────────────────────────────────
 let _dataTable = null;
+let _allRows   = [];   // accumulated across all runs
 
 document.getElementById('submit-btn').addEventListener('click', async () => {
   const files = fileInput.files;
@@ -191,7 +192,7 @@ document.getElementById('submit-btn').addEventListener('click', async () => {
     return;
   }
 
-  // Reset UI state
+  // Reset per-run warnings; keep accumulated results hidden during processing
   document.getElementById('errors-alert').classList.add('d-none');
   document.getElementById('errors-list').innerHTML = '';
   document.getElementById('results-card').style.display = 'none';
@@ -269,8 +270,11 @@ function setProgress(pct, currentFile, done, total) {
 }
 
 function showResults(data) {
-  const rows   = data.rows   || [];
-  const errors = data.errors || [];
+  const newRows = data.rows   || [];
+  const errors  = data.errors || [];
+
+  // Append new rows to the accumulated set
+  _allRows = _allRows.concat(newRows);
 
   // Warnings
   if (errors.length) {
@@ -279,9 +283,9 @@ function showResults(data) {
       errors.map(e => `<li>${escHtml(e)}</li>`).join('');
   }
 
-  // Stats
-  const total = rows.length;
-  const found = rows.filter(r => r.gtin).length;
+  // Stats (based on all accumulated rows)
+  const total = _allRows.length;
+  const found = _allRows.filter(r => r.gtin).length;
   document.getElementById('stats-row').innerHTML = `
     <div class="col-auto">
       <div class="bg-primary bg-opacity-10 rounded p-3 text-center" style="min-width:100px">
@@ -302,22 +306,25 @@ function showResults(data) {
       </div>
     </div>`;
 
-  // Download button (form POST with serialised rows)
+  // Download button and clear button (using all accumulated rows)
   const dlArea = document.getElementById('download-area');
-  if (rows.length) {
+  if (_allRows.length) {
     dlArea.innerHTML = `
-      <form method="POST" action="/download" id="dl-form">
+      <form method="POST" action="/download" id="dl-form" class="d-inline me-2">
         <input type="hidden" name="rows_json" id="dl-rows-json">
         <button type="submit" class="btn btn-success btn-sm">⬇ Download CSV</button>
-      </form>`;
-    document.getElementById('dl-rows-json').value = JSON.stringify(rows);
+      </form>
+      <button type="button" class="btn btn-outline-secondary btn-sm" id="clear-btn"
+              title="Remove all results and start fresh">✕ Clear results</button>`;
+    document.getElementById('dl-rows-json').value = JSON.stringify(_allRows);
+    document.getElementById('clear-btn').addEventListener('click', clearResults);
   } else {
     dlArea.innerHTML = '';
   }
 
-  // Table rows
+  // Table rows (all accumulated)
   const tbody = document.getElementById('results-tbody');
-  tbody.innerHTML = rows.map(r => `
+  tbody.innerHTML = _allRows.map(r => `
     <tr>
       <td>${escHtml(r.filename  || '')}</td>
       <td><code>${escHtml(r.gtin || '—')}</code></td>
@@ -335,7 +342,7 @@ function showResults(data) {
 
   // (Re-)initialise DataTable
   if (_dataTable) { _dataTable.destroy(); _dataTable = null; }
-  if (rows.length) {
+  if (_allRows.length) {
     _dataTable = $('#results-table').DataTable({
       pageLength: 25,
       order: [],
@@ -347,6 +354,17 @@ function showResults(data) {
   const card = document.getElementById('results-card');
   card.style.display = 'block';
   card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function clearResults() {
+  _allRows = [];
+  if (_dataTable) { _dataTable.destroy(); _dataTable = null; }
+  document.getElementById('results-tbody').innerHTML = '';
+  document.getElementById('stats-row').innerHTML     = '';
+  document.getElementById('download-area').innerHTML = '';
+  document.getElementById('results-card').style.display = 'none';
+  document.getElementById('errors-alert').classList.add('d-none');
+  document.getElementById('errors-list').innerHTML = '';
 }
 
 function addError(msg) {
