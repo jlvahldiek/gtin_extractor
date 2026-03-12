@@ -14,7 +14,7 @@ from pathlib import Path
 from tqdm import tqdm  # type: ignore[import]
 
 from gtin_extractor.config import load_config
-from gtin_extractor.csv_export import CSVWriter, build_row
+from gtin_extractor.csv_export import CSVWriter, build_row, deduplicate_rows
 from gtin_extractor.gemini_integration import analyze_product_gemini
 from gtin_extractor.logging_config import setup_logging
 from gtin_extractor.readers import process_image
@@ -45,6 +45,12 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--log-file", help="Path to log file", default=None)
     parser.add_argument("--config", help="Path to config.yaml file", default=None)
+    parser.add_argument(
+        "--remove-duplicates",
+        action="store_true",
+        default=None,
+        help="Remove rows with duplicate GTINs from the CSV output (keeps first occurrence)",
+    )
     return parser.parse_args(argv)
 
 
@@ -76,6 +82,8 @@ def main(argv: list[str] | None = None) -> int:
         cfg.log_level = args.log_level
     if args.log_file is not None:
         cfg.log_file = args.log_file
+    if args.remove_duplicates:
+        cfg.remove_duplicates = True
 
     # Set up logging
     setup_logging(log_level=cfg.log_level, log_file=cfg.log_file)
@@ -116,8 +124,15 @@ def main(argv: list[str] | None = None) -> int:
             yield build_row(file_path.name, gtin, method, product_info)
 
     if cfg.csv_output:
+        all_rows = list(_iter_results())
+        if cfg.remove_duplicates:
+            before = len(all_rows)
+            all_rows = deduplicate_rows(all_rows)
+            removed = before - len(all_rows)
+            if removed:
+                log.info("Removed %d duplicate GTIN row(s).", removed)
         with CSVWriter(cfg.csv_output) as writer:
-            for row in _iter_results():
+            for row in all_rows:
                 writer.writerow(row)
         log.info("Results exported to %s", cfg.csv_output)
     else:

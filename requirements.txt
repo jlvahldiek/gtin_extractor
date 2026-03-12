@@ -12,3 +12,6 @@ google-genai>=0.1.0,<2
 # (automatically used when present; no error if absent)
 # PyYAML>=6.0,<7
 # python-dotenv>=1.0.0,<2
+
+# Optional: install Flask to enable the Web UI (pip install gtin_extractor[web])
+# Flask>=3.0.0,<4

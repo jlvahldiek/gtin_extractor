@@ -33,6 +33,7 @@ DEFAULTS: dict[str, Any] = {
     "log_level": "INFO",
     "log_file": None,
     "limit": None,
+    "remove_duplicates": False,
 }
 
 
@@ -50,6 +51,7 @@ class Config:
         log_level: Logging level string (DEBUG, INFO, WARNING, ERROR).
         log_file: Optional path to write log output to a file.
         limit: Optional maximum number of images to process.
+        remove_duplicates: When ``True``, deduplicate output rows by GTIN.
     """
 
     image_dir: str = DEFAULTS["image_dir"]
@@ -61,6 +63,7 @@ class Config:
     log_level: str = DEFAULTS["log_level"]
     log_file: str | None = DEFAULTS["log_file"]
     limit: int | None = DEFAULTS["limit"]
+    remove_duplicates: bool = DEFAULTS["remove_duplicates"]
 
     # Extra keys from config file / env that are not declared above
     extra: dict[str, Any] = field(default_factory=dict)
@@ -165,6 +168,16 @@ def load_config(
         except (TypeError, ValueError):
             return default
 
+    def get_bool(key: str, default: Any = None) -> bool:
+        val = get(key, default)
+        if val is None:
+            return bool(default) if default is not None else False
+        if isinstance(val, bool):
+            return val
+        if isinstance(val, str):
+            return val.lower() in ("1", "true", "yes", "on")
+        return bool(val)
+
     known_keys = set(DEFAULTS.keys())
     extra = {k: v for k, v in yaml_data.items() if k not in known_keys}
 
@@ -178,5 +191,6 @@ def load_config(
         log_level=get("log_level", DEFAULTS["log_level"]),
         log_file=get("log_file", DEFAULTS["log_file"]),
         limit=get_int("limit", DEFAULTS["limit"]),
+        remove_duplicates=get_bool("remove_duplicates", DEFAULTS["remove_duplicates"]),
         extra=extra,
     )

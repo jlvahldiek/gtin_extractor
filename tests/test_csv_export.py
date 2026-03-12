@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from gtin_extractor.csv_export import FIELDNAMES, CSVWriter, build_row, write_results_csv
+from gtin_extractor.csv_export import FIELDNAMES, CSVWriter, build_row, deduplicate_rows, write_results_csv
 
 
 class TestBuildRow:
@@ -114,3 +114,55 @@ class TestWriteResultsCsv:
         csv_path = tmp_path / "results.csv"
         write_results_csv([], Path(csv_path))
         assert csv_path.exists()
+
+
+class TestDeduplicateRows:
+    """Tests for the deduplicate_rows helper."""
+
+    def test_removes_duplicate_gtins(self):
+        rows = [
+            build_row("img1.png", "00012345678905", "pyzbar", {}),
+            build_row("img2.png", "00012345678905", "zxing", {}),
+        ]
+        result = deduplicate_rows(rows)
+        assert len(result) == 1
+        assert result[0]["filename"] == "img1.png"
+
+    def test_keeps_distinct_gtins(self):
+        rows = [
+            build_row("img1.png", "00012345678905", "pyzbar", {}),
+            build_row("img2.png", "5901234123457", "pyzbar", {}),
+        ]
+        result = deduplicate_rows(rows)
+        assert len(result) == 2
+
+    def test_keeps_all_empty_gtin_rows(self):
+        rows = [
+            build_row("img1.png", "", "", {}),
+            build_row("img2.png", "", "", {}),
+        ]
+        result = deduplicate_rows(rows)
+        assert len(result) == 2
+
+    def test_empty_input_returns_empty(self):
+        assert deduplicate_rows([]) == []
+
+    def test_no_duplicates_unchanged(self):
+        rows = [
+            build_row("img1.png", "00012345678905", "pyzbar", {}),
+            build_row("img2.png", "5901234123457", "zxing", {}),
+            build_row("img3.png", "", "", {}),
+        ]
+        result = deduplicate_rows(rows)
+        assert len(result) == 3
+
+    def test_preserves_order_of_first_occurrence(self):
+        rows = [
+            build_row("a.png", "00012345678905", "pyzbar", {}),
+            build_row("b.png", "5901234123457", "pyzbar", {}),
+            build_row("c.png", "00012345678905", "gemini", {}),
+        ]
+        result = deduplicate_rows(rows)
+        assert len(result) == 2
+        assert result[0]["filename"] == "a.png"
+        assert result[1]["filename"] == "b.png"
