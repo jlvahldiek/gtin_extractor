@@ -322,7 +322,13 @@ function showResults(data) {
     dlArea.innerHTML = '';
   }
 
-  // Table rows (all accumulated)
+  // Destroy DataTable FIRST so we own the DOM before writing new HTML.
+  // If destroy() is called after tbody.innerHTML, DataTables restores its
+  // first-init snapshot and overwrites the rows we just wrote.
+  if (_dataTable) { _dataTable.destroy(); _dataTable = null; }
+
+  // Table rows (all accumulated) — written after destroy so DataTables
+  // picks up the fresh HTML when it re-initialises below.
   const tbody = document.getElementById('results-tbody');
   tbody.innerHTML = _allRows.map(r => `
     <tr>
@@ -340,8 +346,7 @@ function showResults(data) {
       <td>${escHtml(r.product_specs || '—')}</td>
     </tr>`).join('');
 
-  // (Re-)initialise DataTable
-  if (_dataTable) { _dataTable.destroy(); _dataTable = null; }
+  // (Re-)initialise DataTable on the freshly written HTML
   if (_allRows.length) {
     _dataTable = $('#results-table').DataTable({
       pageLength: 25,
