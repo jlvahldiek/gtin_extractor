@@ -211,3 +211,4 @@ fotos
 *.csv
 gtin_extractor.code-workspace
 .DS_Store
+nohup.out
