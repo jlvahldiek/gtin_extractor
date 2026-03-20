@@ -5,11 +5,11 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "gtin_extractor"
 version = "1.0.0"
-description = "Batch GTIN extraction from product label images using pyzbar, zxing-cpp, and Gemini AI"
+description = "Batch GTIN extraction from product label images using pyzbar, zxing-cpp, and AI vision models"
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
-keywords = ["gtin", "barcode", "ean", "upc", "gs1", "pyzbar", "zxing", "gemini"]
+keywords = ["gtin", "barcode", "ean", "upc", "gs1", "pyzbar", "zxing", "gemini", "openai"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -28,6 +28,7 @@ dependencies = [
     "Pillow>=10.2.0",
     "tqdm>=4.66.0",
     "google-genai>=0.1.0",
+    "openai>=1.0.0",
 ]
 
 [project.optional-dependencies]

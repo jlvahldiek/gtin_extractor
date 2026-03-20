@@ -12,7 +12,7 @@ A robust Python tool for batch extracting and validating GTINs (Global Trade Ite
 - **Multi-Library Detection**: Combines `pyzbar` and `zxing-cpp` for industry-standard barcode scanning.
 - **Manual & Native Rotation**: Manually rotates images to find barcodes in any orientation.
 - **GS1 Support**: Intelligent parsing of GS1-formatted strings (e.g., extracting GTIN from `(01)0871...`).
-- **Gemini AI Fallback**: Uses the modern `google-genai` SDK and `gemini-2.0-flash` (or newer) to analyze photos where traditional scans fail.
+- **AI Fallback (Gemini or OpenAI)**: Supports both Google Gemini (`google-genai`) and OpenAI vision models for difficult scans and product metadata extraction.
 - **Batch Processing**: Scans entire directories with a high-performance progress bar (`tqdm`).
 - **Detection Tracking**: Tracks and records which method successfully found each GTIN.
 - **Duplicate Removal**: Optional `--remove-duplicates` flag deduplicates the final CSV by GTIN value.
@@ -69,7 +69,10 @@ pip install -r requirements.txt
 python -m gtin_extractor fotos/ --csv output.csv
 
 # With Gemini AI fallback
-python -m gtin_extractor fotos/ --gemini-key YOUR_API_KEY --csv results.csv
+python -m gtin_extractor fotos/ --ai-provider gemini --gemini-key YOUR_API_KEY --csv results.csv
+
+# With OpenAI AI fallback
+python -m gtin_extractor fotos/ --ai-provider openai --openai-key YOUR_API_KEY --csv results.csv
 
 # Remove duplicate GTINs from the output CSV
 python -m gtin_extractor fotos/ --csv results.csv --remove-duplicates
@@ -130,8 +133,11 @@ python3 gtin_barcode_extractor.py fotos/ --csv output.csv
 |---|---|---|
 | `directory` | Directory containing images | `fotos` (or config value) |
 | `--csv` | Output CSV file path | none |
+| `--ai-provider` | AI provider to use (`gemini` or `openai`) | `gemini` |
 | `--gemini-key` | Google Gemini API key | none |
 | `--gemini-model` | Gemini model to use | `gemini-2.0-flash` |
+| `--openai-key` | OpenAI API key | none |
+| `--openai-model` | OpenAI model to use | `gpt-4.1-mini` |
 | `--limit N` | Process only the first N images | none |
 | `--remove-duplicates` | Remove rows with duplicate GTINs from CSV | off |
 | `--log-level` | Logging verbosity (`DEBUG`/`INFO`/`WARNING`/`ERROR`) | `INFO` |
@@ -147,8 +153,11 @@ Create a `config.yaml` file in the working directory (all keys optional):
 ```yaml
 image_dir: fotos
 csv_output: results.csv
+ai_provider: gemini
 gemini_api_key: YOUR_KEY_HERE
 gemini_model: gemini-2.0-flash
+openai_api_key: YOUR_OPENAI_KEY_HERE
+openai_model: gpt-4.1-mini
 max_retries: 5
 base_delay: 10.0
 log_level: INFO
@@ -161,6 +170,8 @@ Environment variables override YAML values. All variables are prefixed with `GTI
 
 ```bash
 export GTIN_GEMINI_API_KEY=your-key
+export GTIN_OPENAI_API_KEY=your-openai-key
+export GTIN_AI_PROVIDER=openai
 export GTIN_LOG_LEVEL=DEBUG
 export GTIN_IMAGE_DIR=/path/to/images
 ```
@@ -239,8 +250,8 @@ make typecheck  # mypy type check
 
 1. **Scan Phase 1 (`pyzbar`)**: Tries to find a barcode using `pyzbar` at 0, 90, 180, and 270-degree rotations.
 2. **Scan Phase 2 (`zxing-cpp`)**: Falls back to `zxing-cpp` with native rotation and downscaling features enabled.
-3. **Scan Phase 3 (Gemini GTIN fallback)**: If enabled, sends the image to Google's Gemini API for intelligent visual GTIN extraction.
-4. **Product Analysis (Gemini)**: After GTIN detection, sends each image to Gemini to extract product metadata: manufacturer, REF number, product name, and key specifications.
+3. **Scan Phase 3 (AI GTIN fallback)**: If enabled, sends the image to Gemini or OpenAI for intelligent visual GTIN extraction.
+4. **Product Analysis (AI)**: After GTIN detection, sends each image to the selected AI provider to extract product metadata: manufacturer, REF number, product name, and key specifications.
 5. **Validation**: Every extracted GTIN is validated using a length check and the GS1 checksum algorithm before being recorded.
 
 ---
@@ -253,11 +264,11 @@ make typecheck  # mypy type check
 | `gtin` | Extracted & validated GTIN (empty if none found) |
 | `gtin_detection_status` | `validated` or `invalid` |
 | `gtin_detection_method` | `pyzbar`, `zxing`, or `gemini` |
-| `manufacturer` | Brand/manufacturer name extracted by Gemini |
-| `ref` | REF/catalog number extracted by Gemini |
+| `manufacturer` | Brand/manufacturer name extracted by AI |
+| `ref` | REF/catalog number extracted by AI |
 | `ref_confidence` | Confidence in the REF number (`high`, `medium`, `low`) |
-| `product_name` | Commercial product name extracted by Gemini |
-| `product_specs` | Key product specifications extracted by Gemini (semicolon-separated) |
+| `product_name` | Commercial product name extracted by AI |
+| `product_specs` | Key product specifications extracted by AI (semicolon-separated) |
 
 ---
 

@@ -26,8 +26,11 @@ logger = logging.getLogger("gtin_extractor.config")
 DEFAULTS: dict[str, Any] = {
     "image_dir": "fotos",
     "csv_output": None,
+    "ai_provider": "gemini",
     "gemini_api_key": None,
     "gemini_model": "gemini-2.0-flash",
+    "openai_api_key": None,
+    "openai_model": "gpt-4.1-mini",
     "max_retries": 5,
     "base_delay": 10.0,
     "log_level": "INFO",
@@ -44,8 +47,11 @@ class Config:
     Attributes:
         image_dir: Directory to scan for images.
         csv_output: Path for the CSV output file (``None`` = stdout/no file).
+        ai_provider: AI provider for fallback and metadata extraction.
         gemini_api_key: Google Gemini API key.
         gemini_model: Gemini model identifier.
+        openai_api_key: OpenAI API key.
+        openai_model: OpenAI model identifier.
         max_retries: Maximum API retry attempts.
         base_delay: Base back-off delay in seconds.
         log_level: Logging level string (DEBUG, INFO, WARNING, ERROR).
@@ -56,8 +62,11 @@ class Config:
 
     image_dir: str = DEFAULTS["image_dir"]
     csv_output: str | None = DEFAULTS["csv_output"]
+    ai_provider: str = DEFAULTS["ai_provider"]
     gemini_api_key: str | None = DEFAULTS["gemini_api_key"]
     gemini_model: str = DEFAULTS["gemini_model"]
+    openai_api_key: str | None = DEFAULTS["openai_api_key"]
+    openai_model: str = DEFAULTS["openai_model"]
     max_retries: int = DEFAULTS["max_retries"]
     base_delay: float = DEFAULTS["base_delay"]
     log_level: str = DEFAULTS["log_level"]
@@ -184,8 +193,11 @@ def load_config(
     return Config(
         image_dir=get("image_dir", DEFAULTS["image_dir"]),
         csv_output=get("csv_output", DEFAULTS["csv_output"]),
+        ai_provider=get("ai_provider", DEFAULTS["ai_provider"]),
         gemini_api_key=get("gemini_api_key", DEFAULTS["gemini_api_key"]),
         gemini_model=get("gemini_model", DEFAULTS["gemini_model"]),
+        openai_api_key=get("openai_api_key", DEFAULTS["openai_api_key"]),
+        openai_model=get("openai_model", DEFAULTS["openai_model"]),
         max_retries=get_int("max_retries", DEFAULTS["max_retries"]),
         base_delay=get_float("base_delay", DEFAULTS["base_delay"]),
         log_level=get("log_level", DEFAULTS["log_level"]),

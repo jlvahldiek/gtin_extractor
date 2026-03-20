@@ -16,7 +16,7 @@ services:
     build: .
     image: gtin_extractor:latest
     ports:
-      - "5000:5000"
+      - "7123:5000"
     volumes:
       - ./data:/data        # mount a local ./data directory to /data inside the container
     environment:

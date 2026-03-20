@@ -7,6 +7,7 @@ zxing-cpp>=2.2.0,<3
 Pillow>=10.2.0,<12
 tqdm>=4.66.0,<5
 google-genai>=0.1.0,<2
+openai>=1.0.0,<2
 
 # Optional: install these for config.yaml and .env file support
 # (automatically used when present; no error if absent)

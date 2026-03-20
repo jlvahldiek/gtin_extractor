@@ -15,7 +15,7 @@ from tqdm import tqdm  # type: ignore[import]
 
 from gtin_extractor.config import load_config
 from gtin_extractor.csv_export import CSVWriter, build_row, deduplicate_rows
-from gtin_extractor.gemini_integration import analyze_product_gemini
+from gtin_extractor.gemini_integration import analyze_product_ai
 from gtin_extractor.logging_config import setup_logging
 from gtin_extractor.readers import process_image
 
@@ -32,8 +32,16 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Directory containing images (default: value from config / 'fotos')",
     )
     parser.add_argument("--csv", help="Path to output CSV file", default=None)
+    parser.add_argument(
+        "--ai-provider",
+        choices=["gemini", "openai"],
+        default=None,
+        help="AI provider for fallback + metadata extraction",
+    )
     parser.add_argument("--gemini-key", help="Google Gemini API Key", default=None)
     parser.add_argument("--gemini-model", help="Gemini model to use", default=None)
+    parser.add_argument("--openai-key", help="OpenAI API Key", default=None)
+    parser.add_argument("--openai-model", help="OpenAI model to use", default=None)
     parser.add_argument(
         "--limit", type=int, help="Limit the number of files to process", default=None
     )
@@ -72,10 +80,16 @@ def main(argv: list[str] | None = None) -> int:
         cfg.image_dir = args.directory
     if args.csv is not None:
         cfg.csv_output = args.csv
+    if args.ai_provider is not None:
+        cfg.ai_provider = args.ai_provider
     if args.gemini_key is not None:
         cfg.gemini_api_key = args.gemini_key
     if args.gemini_model is not None:
         cfg.gemini_model = args.gemini_model
+    if args.openai_key is not None:
+        cfg.openai_api_key = args.openai_key
+    if args.openai_model is not None:
+        cfg.openai_model = args.openai_model
     if args.limit is not None:
         cfg.limit = args.limit
     if args.log_level is not None:
@@ -96,6 +110,15 @@ def main(argv: list[str] | None = None) -> int:
 
     log.info("Processing images in %s …", dir_path)
 
+    provider = (cfg.ai_provider or "gemini").strip().lower()
+    if provider == "openai":
+        ai_key = cfg.openai_api_key
+        ai_model = cfg.openai_model
+    else:
+        provider = "gemini"
+        ai_key = cfg.gemini_api_key
+        ai_model = cfg.gemini_model
+
     valid_exts = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".gif"}
     files_to_process = [
         f for f in dir_path.iterdir() if f.is_file() and f.suffix.lower() in valid_exts
@@ -109,11 +132,12 @@ def main(argv: list[str] | None = None) -> int:
         for file_path in tqdm(files_to_process, desc="Scanning images"):
             gtin, method = process_image(
                 str(file_path),
-                gemini_key=cfg.gemini_api_key,
-                gemini_model=cfg.gemini_model,
+                ai_provider=provider,
+                ai_key=ai_key,
+                ai_model=ai_model,
             )
-            product_info = analyze_product_gemini(
-                str(file_path), api_key=cfg.gemini_api_key, model=cfg.gemini_model
+            product_info = analyze_product_ai(
+                str(file_path), provider=provider, api_key=ai_key or "", model=ai_model
             )
 
             if gtin:

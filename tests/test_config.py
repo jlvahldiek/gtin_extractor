@@ -16,6 +16,14 @@ class TestConfigDefaults:
         cfg = Config()
         assert cfg.gemini_model == DEFAULTS["gemini_model"]
 
+    def test_ai_provider_default(self):
+        cfg = Config()
+        assert cfg.ai_provider == DEFAULTS["ai_provider"]
+
+    def test_openai_model_default(self):
+        cfg = Config()
+        assert cfg.openai_model == DEFAULTS["openai_model"]
+
     def test_max_retries_default(self):
         cfg = Config()
         assert cfg.max_retries == DEFAULTS["max_retries"]
@@ -31,6 +39,10 @@ class TestConfigDefaults:
     def test_gemini_api_key_none_by_default(self):
         cfg = Config()
         assert cfg.gemini_api_key is None
+
+    def test_openai_api_key_none_by_default(self):
+        cfg = Config()
+        assert cfg.openai_api_key is None
 
 
 class TestLoadConfigFromYaml:
@@ -80,6 +92,11 @@ class TestLoadConfigFromEnv:
         monkeypatch.setenv("GTIN_GEMINI_API_KEY", "test-api-key")
         cfg = load_config(config_file="nonexistent_config.yaml")
         assert cfg.gemini_api_key == "test-api-key"
+
+    def test_openai_key_from_env(self, monkeypatch):
+        monkeypatch.setenv("GTIN_OPENAI_API_KEY", "test-openai-key")
+        cfg = load_config(config_file="nonexistent_config.yaml")
+        assert cfg.openai_api_key == "test-openai-key"
 
     def test_limit_from_env_is_int(self, monkeypatch):
         monkeypatch.setenv("GTIN_LIMIT", "10")

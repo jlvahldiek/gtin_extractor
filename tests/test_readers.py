@@ -186,6 +186,35 @@ class TestProcessImage:
         assert gtin == "00012345678905"
         assert method == "gemini"
 
+    def test_falls_back_to_openai_when_provider_selected(self, tmp_path):
+        from gtin_extractor.readers import process_image
+
+        img_path = self._make_tmp_image(tmp_path)
+
+        with (
+            patch("gtin_extractor.readers.decode_barcode_pyzbar", return_value=""),
+            patch("gtin_extractor.readers.decode_barcode_zxing", return_value=""),
+            patch(
+                "gtin_extractor.gemini_integration.decode_barcode_ai",
+                return_value="00012345678905",
+            ) as mock_ai,
+        ):
+            gtin, method = process_image(
+                img_path,
+                ai_provider="openai",
+                ai_key="fake-openai-key",
+                ai_model="gpt-4.1-mini",
+            )
+
+        assert gtin == "00012345678905"
+        assert method == "openai"
+        mock_ai.assert_called_once_with(
+            img_path,
+            provider="openai",
+            api_key="fake-openai-key",
+            model="gpt-4.1-mini",
+        )
+
     def test_handles_corrupt_image_gracefully(self, tmp_path):
         from gtin_extractor.readers import process_image
 

@@ -61,21 +61,27 @@ def decode_barcode_zxing(image: "PILImage.Image") -> str:
 
 def process_image(
     image_path: str | Path,
+    ai_provider: str = "gemini",
+    ai_key: str | None = None,
+    ai_model: str | None = None,
     gemini_key: str | None = None,
     gemini_model: str = "gemini-2.0-flash",
 ) -> tuple[str, str]:
     """Process a single image and attempt to read a GTIN.
 
-    Tries readers in order: pyzbar (with manual rotations) → zxing-cpp → Gemini.
+    Tries readers in order: pyzbar (with manual rotations) → zxing-cpp → AI fallback.
 
     Args:
         image_path: Filesystem path to the image file.
-        gemini_key: Optional Google Gemini API key; enables the AI fallback.
-        gemini_model: Gemini model identifier to use for the AI fallback.
+        ai_provider: AI provider name (``"gemini"`` or ``"openai"``).
+        ai_key: AI API key for the selected provider.
+        ai_model: AI model identifier for the selected provider.
+        gemini_key: Deprecated compatibility alias for ``ai_key``.
+        gemini_model: Deprecated compatibility alias for ``ai_model``.
 
     Returns:
         A ``(gtin, method)`` tuple where *method* is one of ``"pyzbar"``,
-        ``"zxing"``, ``"gemini"``, or ``""`` when nothing was found.
+        ``"zxing"``, ``"gemini"``, ``"openai"``, or ``""`` when nothing was found.
     """
     from PIL import Image  # type: ignore[import]
 
@@ -94,12 +100,16 @@ def process_image(
             if result:
                 return result, "zxing"
 
-        if gemini_key:
-            from gtin_extractor.gemini_integration import decode_barcode_gemini
+        provider = (ai_provider or "gemini").strip().lower()
+        key = ai_key if ai_key is not None else gemini_key
+        model = ai_model if ai_model is not None else gemini_model
 
-            result = decode_barcode_gemini(image_path, gemini_key, model=gemini_model)
+        if key:
+            from gtin_extractor.gemini_integration import decode_barcode_ai
+
+            result = decode_barcode_ai(image_path, provider=provider, api_key=key, model=model)
             if result:
-                return result, "gemini"
+                return result, provider
 
     except Exception as exc:
         logger.error("Error processing %s: %s", image_path, exc, exc_info=True)

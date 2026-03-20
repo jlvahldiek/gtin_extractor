@@ -59,16 +59,37 @@
       <div class="card" style="box-shadow:none; border:1px solid #e0e0e0; padding:1rem;">
         <h2 style="margin-bottom:.75rem;">Options</h2>
 
-        <label for="gemini_key">Google Gemini API Key <span style="font-weight:normal;color:#666;">(optional)</span></label>
-        <input type="password" id="gemini_key" name="gemini_key"
-               placeholder="AIza…" autocomplete="off">
-
-        <label for="gemini_model">Gemini Model <span id="model-status" style="font-weight:normal;color:#666;"></span></label>
-        <select id="gemini_model" name="gemini_model">
-          <option value="gemini-2.0-flash" selected>gemini-2.0-flash (default)</option>
-          <option value="gemini-1.5-pro">gemini-1.5-pro</option>
-          <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+        <label for="ai_provider">AI Provider</label>
+        <select id="ai_provider" name="ai_provider">
+          <option value="gemini" selected>Google Gemini</option>
+          <option value="openai">OpenAI</option>
         </select>
+
+        <div id="gemini-fields">
+          <label for="gemini_key">Google Gemini API Key <span style="font-weight:normal;color:#666;">(optional)</span></label>
+          <input type="password" id="gemini_key" name="gemini_key"
+                 placeholder="AIza…" autocomplete="off">
+
+          <label for="gemini_model">Gemini Model <span id="gemini-model-status" style="font-weight:normal;color:#666;"></span></label>
+          <select id="gemini_model" name="gemini_model">
+            <option value="gemini-2.0-flash" selected>gemini-2.0-flash (default)</option>
+            <option value="gemini-1.5-pro">gemini-1.5-pro</option>
+            <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+          </select>
+        </div>
+
+        <div id="openai-fields" style="display:none;">
+          <label for="openai_key">OpenAI API Key <span style="font-weight:normal;color:#666;">(optional)</span></label>
+          <input type="password" id="openai_key" name="openai_key"
+                 placeholder="sk-..." autocomplete="off">
+
+          <label for="openai_model">OpenAI Model <span id="openai-model-status" style="font-weight:normal;color:#666;"></span></label>
+          <select id="openai_model" name="openai_model">
+            <option value="gpt-4.1-mini" selected>gpt-4.1-mini (default)</option>
+            <option value="gpt-4.1">gpt-4.1</option>
+            <option value="gpt-4o-mini">gpt-4o-mini</option>
+          </select>
+        </div>
 
         <div class="checkbox-row">
           <input type="checkbox" id="remove_duplicates" name="remove_duplicates">
@@ -110,16 +131,24 @@
     loading.style.display = 'block';
   });
 
-  // ── Dynamic Gemini model list ─────────────────────────────────────────────
-  const geminiKeyInput   = document.getElementById('gemini_key');
+  // ── Dynamic model list per provider ──────────────────────────────────────
+  const aiProviderSelect = document.getElementById('ai_provider');
+  const geminiFields = document.getElementById('gemini-fields');
+  const openaiFields = document.getElementById('openai-fields');
+
+  const geminiKeyInput = document.getElementById('gemini_key');
   const geminiModelSelect = document.getElementById('gemini_model');
-  const modelStatus      = document.getElementById('model-status');
+  const geminiModelStatus = document.getElementById('gemini-model-status');
+
+  const openaiKeyInput = document.getElementById('openai_key');
+  const openaiModelSelect = document.getElementById('openai_model');
+  const openaiModelStatus = document.getElementById('openai-model-status');
 
   let _modelFetchTimer = null;
 
-  function populateModels(models) {
-    const current = geminiModelSelect.value;
-    geminiModelSelect.innerHTML = '';
+  function populateModels(selectEl, models) {
+    const current = selectEl.value;
+    selectEl.innerHTML = '';
     models.forEach((name, i) => {
       const opt = document.createElement('option');
       opt.value = name;
@@ -127,55 +156,105 @@
       if (name === current || (i === 0 && !models.includes(current))) {
         opt.selected = true;
       }
-      geminiModelSelect.appendChild(opt);
+      selectEl.appendChild(opt);
     });
   }
 
-  async function fetchModels(key) {
+  function updateProviderFields() {
+    const provider = aiProviderSelect.value;
+    geminiFields.style.display = provider === 'gemini' ? 'block' : 'none';
+    openaiFields.style.display = provider === 'openai' ? 'block' : 'none';
+  }
+
+  async function fetchModels(provider, key, selectEl, statusEl, fallbackModels) {
     if (!key) {
-      // Reset to built-in defaults when the key is cleared
-      populateModels(['gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash']);
-      modelStatus.textContent = '';
+      populateModels(selectEl, fallbackModels);
+      statusEl.textContent = '';
+      statusEl.title = '';
       return;
     }
 
-    geminiModelSelect.disabled = true;
-    modelStatus.textContent = '⏳ loading…';
+    selectEl.disabled = true;
+    statusEl.textContent = '⏳ loading…';
 
     try {
       const resp = await fetch('/api/models', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key }),
+        body: JSON.stringify({ provider, key }),
       });
       const data = await resp.json();
-      populateModels(data.models);
+      populateModels(selectEl, data.models);
       if (data.error) {
-        modelStatus.textContent = '⚠ using defaults';
-        modelStatus.title = data.error;
+        statusEl.textContent = '⚠ using defaults';
+        statusEl.title = data.error;
       } else {
-        modelStatus.textContent = `(${data.models.length} available)`;
-        modelStatus.title = '';
+        statusEl.textContent = `(${data.models.length} available)`;
+        statusEl.title = '';
       }
     } catch (e) {
-      modelStatus.textContent = '⚠ could not load';
-      modelStatus.title = String(e);
+      statusEl.textContent = '⚠ could not load';
+      statusEl.title = String(e);
     } finally {
-      geminiModelSelect.disabled = false;
+      selectEl.disabled = false;
     }
   }
 
-  // Debounce: fetch after the user stops typing for 600 ms
-  geminiKeyInput.addEventListener('input', () => {
+  function scheduleModelFetch(provider) {
     clearTimeout(_modelFetchTimer);
-    _modelFetchTimer = setTimeout(() => fetchModels(geminiKeyInput.value.trim()), 600);
+    if (provider === 'openai') {
+      _modelFetchTimer = setTimeout(() => {
+        fetchModels(
+          'openai',
+          openaiKeyInput.value.trim(),
+          openaiModelSelect,
+          openaiModelStatus,
+          ['gpt-4.1-mini', 'gpt-4.1', 'gpt-4o-mini']
+        );
+      }, 600);
+    } else {
+      _modelFetchTimer = setTimeout(() => {
+        fetchModels(
+          'gemini',
+          geminiKeyInput.value.trim(),
+          geminiModelSelect,
+          geminiModelStatus,
+          ['gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash']
+        );
+      }, 600);
+    }
+  }
+
+  aiProviderSelect.addEventListener('change', () => {
+    updateProviderFields();
+    scheduleModelFetch(aiProviderSelect.value);
   });
 
-  // Also fetch immediately on blur (in case they paste and tab away quickly)
+  geminiKeyInput.addEventListener('input', () => scheduleModelFetch('gemini'));
   geminiKeyInput.addEventListener('blur', () => {
     clearTimeout(_modelFetchTimer);
-    fetchModels(geminiKeyInput.value.trim());
+    fetchModels(
+      'gemini',
+      geminiKeyInput.value.trim(),
+      geminiModelSelect,
+      geminiModelStatus,
+      ['gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash']
+    );
   });
+
+  openaiKeyInput.addEventListener('input', () => scheduleModelFetch('openai'));
+  openaiKeyInput.addEventListener('blur', () => {
+    clearTimeout(_modelFetchTimer);
+    fetchModels(
+      'openai',
+      openaiKeyInput.value.trim(),
+      openaiModelSelect,
+      openaiModelStatus,
+      ['gpt-4.1-mini', 'gpt-4.1', 'gpt-4o-mini']
+    );
+  });
+
+  updateProviderFields();
 </script>
 </body>
 </html>
